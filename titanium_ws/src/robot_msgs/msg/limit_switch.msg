@@ -1,0 +1,2 @@
+uint8 lim_1
+uint8 lim_2
