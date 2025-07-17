@@ -155,6 +155,8 @@ add_executable(udp_stream src/udp_stream.cpp)
 target_link_libraries(udp_stream
   ${catkin_LIBRARIES}
 )
+add_dependencies(udp_stream ${catkin_EXPORTED_TARGETS})
+
 
 #############
 ## Install ##

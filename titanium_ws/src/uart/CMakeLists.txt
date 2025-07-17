@@ -155,6 +155,7 @@ add_executable(uart_stream src/uart_stream.cpp src/serialib.cpp)
 target_link_libraries(uart_stream
   ${catkin_LIBRARIES}
 )
+add_dependencies(uart_stream ${catkin_EXPORTED_TARGETS})
 
 #############
 ## Install ##
