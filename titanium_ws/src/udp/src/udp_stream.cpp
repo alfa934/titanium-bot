@@ -28,7 +28,7 @@ void timer1msCallback(const ros::TimerEvent &event)
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "pub_udp_node");
+    ros::init(argc, argv, "udp_node");
     
     ros::NodeHandle nh;
 

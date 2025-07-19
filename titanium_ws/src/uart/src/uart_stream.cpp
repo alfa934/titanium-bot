@@ -156,7 +156,7 @@ void subMotorCallback(const robot_msgs::motorConstPtr &msg)
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "serialbot");
+    ros::init(argc, argv, "uart_node");
     ros::NodeHandle nh;
 
     sub_motor = nh.subscribe("/actuator/motor", 10, subMotorCallback);
