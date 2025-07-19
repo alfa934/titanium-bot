@@ -43,12 +43,12 @@ char rx_buffer[BUFF_SIZE];
 char tx_buffer[BUFF_SIZE] = "ABC";
 struct sockaddr_in servaddr, cliaddr;
 
-ros::Timer timer_1ms;
+ros::Timer timer_udpRead, timer_udpWrite;
 ros::Publisher pub;
 ros::Subscriber sub;
 
 
-void timerCallback1ms(const ros::TimerEvent &event)
+void udpReadCallback(const ros::TimerEvent &event)
 {
 	socklen_t len = sizeof(cliaddr);
 	int bytes_captured = recvfrom(sockfd, rx_buffer, BUFF_SIZE, MSG_DONTWAIT, 
@@ -80,7 +80,15 @@ void timerCallback1ms(const ros::TimerEvent &event)
 		
 		pub.publish(msg);
 	}
+}
 
+void udpWriteCallback(const ros::TimerEvent &event)
+{
+	memcpy(tx_buffer +  3, &udp_tx, sizeof(udpTx_t));
+	
+    socklen_t len = sizeof(cliaddr);
+	sendto(sockfd, tx_buffer, sizeof(tx_buffer), MSG_CONFIRM,
+			(const struct sockaddr *) &cliaddr, len); 
 }
 
 void dataSubCallback(const std_msgs::Float32MultiArray::ConstPtr &msg)
@@ -88,12 +96,6 @@ void dataSubCallback(const std_msgs::Float32MultiArray::ConstPtr &msg)
 	udp_tx.motor_a = (int16_t)msg->data[0];
 	udp_tx.motor_b = (int16_t)msg->data[1];
 	udp_tx.motor_c = (int16_t)msg->data[2];
-	
-	memcpy(tx_buffer +  3, &udp_tx, sizeof(udpTx_t));
-	
-    socklen_t len = sizeof(cliaddr);
-	sendto(sockfd, tx_buffer, sizeof(tx_buffer), MSG_CONFIRM,
-			(const struct sockaddr *) &cliaddr, len); 
 }
 
 void initSocket()
@@ -136,7 +138,8 @@ int main(int argc, char **argv)
 
     pub = nh.advertise<std_msgs::Float32MultiArray>("/stm32_to_ros", 100);
     sub = nh.subscribe("/ros_to_stm32", 100, dataSubCallback);
-    timer_1ms = nh.createTimer(ros::Duration(0.001), timerCallback1ms);
+    timer_udpRead = nh.createTimer(ros::Duration(0.001), udpReadCallback);
+    timer_udpWrite = nh.createTimer(ros::Duration(0.001), udpWriteCallback);
 
     spinner.start();
 

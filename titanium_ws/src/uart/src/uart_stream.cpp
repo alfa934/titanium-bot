@@ -128,7 +128,7 @@ void serialReadCallback(const ros::TimerEvent& event)
         
         last_serial_time = ros::Time::now().toSec();
     }
-    }
+}
 
 
 void serialWriteCallback(const ros::TimerEvent &event)
