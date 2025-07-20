@@ -2,7 +2,7 @@
 #include <cmath>
 #include <algorithm>
 
-MotionProfile::MotionProfile(double maxAcceleration, double maxVelocity, double distance)
+MotionProfile::MotionProfile(float maxAcceleration, float maxVelocity, float distance)
     : m_maxAccel(std::abs(maxAcceleration)),
       m_maxVel(std::abs(maxVelocity)),
       m_distance(distance),
@@ -11,9 +11,13 @@ MotionProfile::MotionProfile(double maxAcceleration, double maxVelocity, double 
     computeProfileParameters();
 }
 
+MotionProfile::~MotionProfile()
+{
+}
+
 void MotionProfile::computeProfileParameters()
 {
-    const double absDistance = std::abs(m_distance);
+    const float absDistance = std::abs(m_distance);
     
     if (absDistance < 1e-9) 
     {
@@ -40,10 +44,10 @@ void MotionProfile::computeProfileParameters()
     m_totalTime = 2 * m_accelTime + m_cruiseTime;
 }
 
-MotionProfile::State MotionProfile::calculate(double elapsedTime) const
+MotionProfile::State MotionProfile::calculate(float elapsedTime) const
 {
     State state{0.0, 0.0, 0.0};
-    double t = elapsedTime;
+    float t = elapsedTime;
     
     if (t < 0)
     {
@@ -63,15 +67,15 @@ MotionProfile::State MotionProfile::calculate(double elapsedTime) const
     }
     else if (t < m_accelTime + m_cruiseTime) //--- cruise
     {
-        const double cruiseT = t - m_accelTime;
+        const float cruiseT = t - m_accelTime;
         state.position = m_accelDistance + m_maxVel * cruiseT;
         state.velocity = m_maxVel;
         state.acceleration = 0.0;
     }
     else if (t < m_totalTime) //--- decelerate
     {
-        const double decelT = t - (m_accelTime + m_cruiseTime);
-        const double decelVel = m_maxVel - m_maxAccel * decelT;
+        const float decelT = t - (m_accelTime + m_cruiseTime);
+        const float decelVel = m_maxVel - m_maxAccel * decelT;
         state.position = m_accelDistance + m_cruiseDistance + 
                          (m_maxVel + decelVel) * 0.5 * decelT;
         state.velocity = decelVel;
@@ -91,7 +95,7 @@ MotionProfile::State MotionProfile::calculate(double elapsedTime) const
     return state;
 }
 
-double MotionProfile::getTotalTime() const
+float MotionProfile::getTotalTime() const
 {
     return m_totalTime;
 }

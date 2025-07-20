@@ -4,7 +4,6 @@
 
 class PID
 {
-
 private:
     float m_kp;
     float m_ki;
