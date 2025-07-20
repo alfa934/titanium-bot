@@ -208,7 +208,7 @@ int main(int argc, char** argv)
     }
 
     last_msg_time = ros::Time::now();
-    sub = nh.subscribe("/robot/pub", 10, subCallback);
+    sub = nh.subscribe("/controller/pub", 10, subCallback);
     timer = nh.createTimer(ros::Duration(0.01), sendCallback);
     
     fds[0].fd = sock;
