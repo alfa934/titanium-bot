@@ -1,1 +1,2 @@
-float32 yaw_degree
+float32 degree
+float32 radian

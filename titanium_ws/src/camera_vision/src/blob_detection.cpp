@@ -7,7 +7,7 @@
 const int low_H = 25, low_S = 40, low_V = 125;
 const int high_H = 60, high_S = 255, high_V = 255;
 
-void imageCallback(const sensor_msgs::ImageConstPtr& msg)
+void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 {
     try
     {

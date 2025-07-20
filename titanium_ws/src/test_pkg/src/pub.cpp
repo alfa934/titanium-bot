@@ -19,10 +19,10 @@ void timer1msCallback(const ros::TimerEvent &event)
 
     pub_encoder.publish(encoder);
 
-    ultrasonic.ultrasonic_a += 10;
-    ultrasonic.ultrasonic_b += 20;
-    ultrasonic.ultrasonic_c += 30;
-    ultrasonic.ultrasonic_d += 40;
+    ultrasonic.ultra_a += 10;
+    ultrasonic.ultra_b += 20;
+    ultrasonic.ultra_c += 30;
+    ultrasonic.ultra_d += 40;
     
     pub_ultrasonic.publish(ultrasonic);
 

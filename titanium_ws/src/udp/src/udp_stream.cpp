@@ -1,5 +1,9 @@
 #include "ros/ros.h"
-#include "std_msgs/Float32MultiArray.h"
+#include "robot_msgs/encoder.h"
+#include "robot_msgs/limit_switch.h"
+#include "robot_msgs/motor.h"
+#include "robot_msgs/ultrasonic.h"
+#include "robot_msgs/yaw.h"
 
 #include <cstring>
 #include <unistd.h>
@@ -13,30 +17,11 @@
 #define PC_PORT    	1556
 #define BUFF_SIZE 	64
 
-typedef struct
-{
-	int16_t enc_a;
-	int16_t enc_b;
-	int16_t enc_c;
-
-	int16_t enc_x;
-	int16_t enc_y;
-
-	float 	yaw_degree;
-
-	uint16_t ultrasonic[4];
-
-} udpRx_t ;
-
-typedef struct
-{
-	int16_t motor_a;
-	int16_t motor_b;
-	int16_t motor_c;
-} udpTx_t ;
-
-udpTx_t udp_tx;
-udpRx_t udp_rx;
+robot_msgs::encoder encoder;
+robot_msgs::limit_switch limit_switch;
+robot_msgs::motor motor;
+robot_msgs::ultrasonic ultrasonic;
+robot_msgs::yaw yaw;
 
 int sockfd;
 char rx_buffer[BUFF_SIZE];
@@ -44,8 +29,8 @@ char tx_buffer[BUFF_SIZE] = "ABC";
 struct sockaddr_in servaddr, cliaddr;
 
 ros::Timer timer_udpRead, timer_udpWrite;
-ros::Publisher pub;
-ros::Subscriber sub;
+ros::Publisher pub_encoder, pub_limit, pub_ultra, pub_yaw;
+ros::Subscriber sub_motor;
 
 
 void udpReadCallback(const ros::TimerEvent &event)
@@ -56,46 +41,42 @@ void udpReadCallback(const ros::TimerEvent &event)
 
 	if (bytes_captured > 0)
 	{
-		memcpy(&udp_rx, rx_buffer +  3, sizeof(udpRx_t));
+		memcpy(&encoder.enc_a, rx_buffer + 3, 2);
+		memcpy(&encoder.enc_b, rx_buffer + 5, 2);
+		memcpy(&encoder.enc_c, rx_buffer + 7, 2);
+		memcpy(&encoder.enc_x, rx_buffer + 9, 2);
+		memcpy(&encoder.enc_y, rx_buffer + 11, 2);
+		memcpy(&yaw.degree, rx_buffer + 13, 4);
+		memcpy(&ultrasonic.ultra_a, rx_buffer + 17, 2);
+		memcpy(&ultrasonic.ultra_b, rx_buffer + 19, 2);
+		memcpy(&ultrasonic.ultra_c, rx_buffer + 21, 2);
+		memcpy(&ultrasonic.ultra_d, rx_buffer + 23, 2);
 
-		ROS_INFO("ENC A,B,C: %d; %d; %d", udp_rx.enc_a, udp_rx.enc_b, udp_rx.enc_c);
-		ROS_INFO("ENC X,Y: %d; %d", udp_rx.enc_x, udp_rx.enc_y);
-		ROS_INFO("YAW DEG: %.2f", udp_rx.yaw_degree);
-		ROS_INFO("ULTRA 0,1,2,3: %d; %d; %d; %d", udp_rx.ultrasonic[0], udp_rx.ultrasonic[1], udp_rx.ultrasonic[2], udp_rx.ultrasonic[3]);
-		ROS_INFO("==============================");
+		yaw.radian = yaw.degree * (180.0 / M_PI);
 
-		std_msgs::Float32MultiArray msg;
-
-		msg.data.clear();
-		msg.data.push_back((float)udp_rx.enc_a);
-		msg.data.push_back((float)udp_rx.enc_b);
-		msg.data.push_back((float)udp_rx.enc_c);
-		msg.data.push_back((float)udp_rx.enc_x);
-		msg.data.push_back((float)udp_rx.enc_y);
-		msg.data.push_back((float)udp_rx.yaw_degree);
-		msg.data.push_back((float)udp_rx.ultrasonic[0]);
-		msg.data.push_back((float)udp_rx.ultrasonic[1]);
-		msg.data.push_back((float)udp_rx.ultrasonic[2]);
-		msg.data.push_back((float)udp_rx.ultrasonic[3]);
-		
-		pub.publish(msg);
+		pub_encoder.publish(encoder);
+		pub_limit.publish(limit_switch);
+		pub_ultra.publish(ultrasonic);
+		pub_yaw.publish(yaw);
 	}
 }
 
 void udpWriteCallback(const ros::TimerEvent &event)
 {
-	memcpy(tx_buffer +  3, &udp_tx, sizeof(udpTx_t));
+	memcpy(tx_buffer +  3, &motor.motor_a, 2);
+    memcpy(tx_buffer +  5, &motor.motor_b, 2);
+    memcpy(tx_buffer +  7, &motor.motor_c, 2);
 	
     socklen_t len = sizeof(cliaddr);
 	sendto(sockfd, tx_buffer, sizeof(tx_buffer), MSG_CONFIRM,
 			(const struct sockaddr *) &cliaddr, len); 
 }
 
-void dataSubCallback(const std_msgs::Float32MultiArray::ConstPtr &msg)
+void motorCallback(const robot_msgs::motorConstPtr &msg)
 {
-	udp_tx.motor_a = (int16_t)msg->data[0];
-	udp_tx.motor_b = (int16_t)msg->data[1];
-	udp_tx.motor_c = (int16_t)msg->data[2];
+	motor.motor_a = msg->motor_a;
+	motor.motor_b = msg->motor_b;
+	motor.motor_c = msg->motor_c;
 }
 
 void initSocket()
@@ -136,8 +117,12 @@ int main(int argc, char **argv)
 
     initSocket();
 
-    pub = nh.advertise<std_msgs::Float32MultiArray>("/stm32_to_ros", 100);
-    sub = nh.subscribe("/ros_to_stm32", 100, dataSubCallback);
+    pub_encoder = nh.advertise<robot_msgs::encoder>("/sensor/encoder", 10);
+	pub_limit = nh.advertise<robot_msgs::limit_switch>("/sensor/limit_switch", 10);
+	pub_ultra = nh.advertise<robot_msgs::ultrasonic>("/sensor/ultrasonic", 10);
+	pub_yaw = nh.advertise<robot_msgs::yaw>("/sensor/yaw", 10);
+    sub_motor = nh.subscribe("/actuator/motor", 10, motorCallback);
+
     timer_udpRead = nh.createTimer(ros::Duration(0.001), udpReadCallback);
     timer_udpWrite = nh.createTimer(ros::Duration(0.001), udpWriteCallback);
 

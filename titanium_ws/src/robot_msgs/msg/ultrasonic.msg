@@ -1,4 +1,4 @@
-uint16 ultrasonic_a
-uint16 ultrasonic_b
-uint16 ultrasonic_c
-uint16 ultrasonic_d
+uint16 ultra_a
+uint16 ultra_b
+uint16 ultra_c
+uint16 ultra_d

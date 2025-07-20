@@ -53,6 +53,7 @@ add_message_files(
   encoder.msg
   limit_switch.msg
   motor.msg
+  odom.msg
   ultrasonic.msg
   yaw.msg
 )

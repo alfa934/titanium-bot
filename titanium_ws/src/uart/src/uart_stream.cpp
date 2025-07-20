@@ -21,10 +21,10 @@ robot_msgs::ultrasonic ultrasonic;
 
 void publishData()
 {
-    memcpy(&ultrasonic.ultrasonic_a, rx_buffer, 2);
-    memcpy(&ultrasonic.ultrasonic_b, rx_buffer + 2, 2);
-    memcpy(&ultrasonic.ultrasonic_c, rx_buffer + 4, 2);
-    memcpy(&ultrasonic.ultrasonic_d, rx_buffer + 6, 2);
+    memcpy(&ultrasonic.ultra_a, rx_buffer, 2);
+    memcpy(&ultrasonic.ultra_b, rx_buffer + 2, 2);
+    memcpy(&ultrasonic.ultra_c, rx_buffer + 4, 2);
+    memcpy(&ultrasonic.ultra_d, rx_buffer + 6, 2);
 
     memcpy(&encoder.enc_a, rx_buffer + 8, 2);
     memcpy(&encoder.enc_b, rx_buffer + 10, 2);

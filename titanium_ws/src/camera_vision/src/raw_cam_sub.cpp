@@ -5,7 +5,7 @@
 
 bool show_display = false;
 
-void imageCallback(const sensor_msgs::ImageConstPtr& msg)
+void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 {
     try
     {
