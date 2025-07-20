@@ -32,7 +32,7 @@ void MotionProfile::computeProfileParameters()
     {
         m_accelTime = std::sqrt(absDistance / m_maxAccel);
         m_accelDistance = 0.5 * m_maxAccel * std::pow(m_accelTime, 2);
-        m_maxVel = m_maxAccel * m_accelTime;  // Actual achieved max velocity
+        m_maxVel = m_maxAccel * m_accelTime;
     }
 
     m_cruiseDistance = absDistance - 2 * m_accelDistance;
@@ -55,25 +55,21 @@ MotionProfile::State MotionProfile::calculate(double elapsedTime) const
     }
 
     
-    // Phase calculations
-    if (t < m_accelTime)
+    if (t < m_accelTime) //--- accelerate
     {
-        // Acceleration phase
         state.position = 0.5 * m_maxAccel * t * t;
         state.velocity = m_maxAccel * t;
         state.acceleration = m_maxAccel;
     }
-    else if (t < m_accelTime + m_cruiseTime)
+    else if (t < m_accelTime + m_cruiseTime) //--- cruise
     {
-        // Cruise phase
         const double cruiseT = t - m_accelTime;
         state.position = m_accelDistance + m_maxVel * cruiseT;
         state.velocity = m_maxVel;
         state.acceleration = 0.0;
     }
-    else if (t < m_totalTime)
+    else if (t < m_totalTime) //--- decelerate
     {
-        // Deceleration phase
         const double decelT = t - (m_accelTime + m_cruiseTime);
         const double decelVel = m_maxVel - m_maxAccel * decelT;
         state.position = m_accelDistance + m_cruiseDistance + 
@@ -81,15 +77,13 @@ MotionProfile::State MotionProfile::calculate(double elapsedTime) const
         state.velocity = decelVel;
         state.acceleration = -m_maxAccel;
     }
-    else
+    else //--- done
     {
-        // Final state (motion complete)
         state.position = std::abs(m_distance);
         state.velocity = 0.0;
         state.acceleration = 0.0;
     }
     
-    // Apply direction sign
     state.position *= m_sign;
     state.velocity *= m_sign;
     state.acceleration *= m_sign;
