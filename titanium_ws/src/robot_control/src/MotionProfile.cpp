@@ -101,10 +101,3 @@ double MotionProfile::getTotalTime() const
 {
     return m_totalTime;
 }
-
-double MotionProfile::clamp(double value, double min_val, double max_val)
-{
-    if (value < min_val) return min_val;
-    if (value > max_val) return max_val;
-    return value;
-}

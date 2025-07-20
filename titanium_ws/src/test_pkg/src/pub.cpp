@@ -1,11 +1,13 @@
 #include "ros/ros.h"
 #include "robot_msgs/encoder.h"
 #include "robot_msgs/ultrasonic.h"
+#include <robot_control/PID.hpp>
 
 ros::Publisher pub_encoder, pub_ultrasonic;
 ros::Timer timer_1ms;
 robot_msgs::encoder encoder;
 robot_msgs::ultrasonic ultrasonic;
+PID MyPID(1, 0, 0);
 
 void timer1msCallback(const ros::TimerEvent &event)
 {
@@ -23,6 +25,8 @@ void timer1msCallback(const ros::TimerEvent &event)
     ultrasonic.ultrasonic_d += 40;
     
     pub_ultrasonic.publish(ultrasonic);
+
+    ROS_INFO_STREAM(MyPID.update(10, 5, 999, 1000) << "\n");
 }
 
 

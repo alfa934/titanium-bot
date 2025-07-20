@@ -27,5 +27,4 @@ public:
 
     State calculate(double elapsedTime) const;
     double getTotalTime() const;
-    double clamp(double value, double min_val, double max_val);
 };

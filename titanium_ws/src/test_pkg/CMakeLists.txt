@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  robot_control
 )
 
 ## System dependencies are found with CMake's conventions
@@ -106,7 +107,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES test_pkg
- CATKIN_DEPENDS robot_msgs roscpp rospy std_msgs
+ CATKIN_DEPENDS robot_msgs roscpp rospy std_msgs robot_control
 #  DEPENDS system_lib
 )
 
@@ -150,6 +151,12 @@ include_directories(
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
+
+add_executable(pub src/pub.cpp)
+target_link_libraries(pub
+  ${catkin_LIBRARIES}
+)
+add_dependencies(pub ${catkin_EXPORTED_TARGETS})
 
 #############
 ## Install ##
