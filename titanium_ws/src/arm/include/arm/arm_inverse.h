@@ -1,7 +1,7 @@
 #ifndef ARM_INVERSE_H
 #define ARM_INVERSE_H
 
-//penis
+//penis but the girth
 
 #include <stdio.h>
 #include <stdlib.h>
