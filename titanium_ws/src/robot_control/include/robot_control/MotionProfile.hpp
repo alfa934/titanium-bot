@@ -1,5 +1,7 @@
 #pragma once
 
+//--- https://www.ctrlaltftc.com/advanced/motion-profiling
+
 class MotionProfile
 {
 private:

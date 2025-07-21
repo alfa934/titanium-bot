@@ -58,12 +58,11 @@ add_message_files(
   yaw.msg
 )
 
-## Generate services in the 'srv' folder
-# add_service_files(
-#   FILES
-#   Service1.srv
-#   Service2.srv
-# )
+# Generate services in the 'srv' folder
+add_service_files(
+  FILES
+  SetOdom.srv
+)
 
 ## Generate actions in the 'action' folder
 # add_action_files(

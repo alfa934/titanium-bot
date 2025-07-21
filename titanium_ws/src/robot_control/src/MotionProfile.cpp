@@ -1,3 +1,5 @@
+//--- https://www.ctrlaltftc.com/advanced/motion-profiling
+
 #include "robot_control/MotionProfile.hpp"
 #include <cmath>
 #include <algorithm>
