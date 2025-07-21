@@ -27,7 +27,7 @@ int main(int argc, char** argv)
     
     ros::Rate rate(1.0/dt);
 
-    ros::Duration(5).sleep(); //-- just wait until rqt_plot connects (trust me)
+    ros::Duration(3).sleep(); //-- just wait until rqt_plot connects (trust me)
     
     for(double t = 0; t <= total_time && ros::ok(); t += dt)
     {

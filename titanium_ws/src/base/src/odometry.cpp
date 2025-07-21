@@ -5,7 +5,7 @@
 #include <robot_msgs/SetOdom.h>
 #include <cmath>
 
-#define ENC_PULSE_TO_CM 0.001;
+#define ENC_PULSE_TO_CM 0.001
 
 ros::Subscriber sub_encoder, sub_yaw;
 ros::Publisher pub_odom;
