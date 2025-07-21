@@ -17,7 +17,7 @@ int main(int argc, char** argv)
     ROS_INFO("Starting [raw_cam_pub] at %dx%d", width, height);
 
     image_transport::ImageTransport it(nh);
-    image_transport::Publisher pub = it.advertise("/camera_pub/raw_image", 1);
+    image_transport::Publisher pub = it.advertise("/camera/raw_image", 1);
 
     cv::VideoCapture cap(0);
     cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);

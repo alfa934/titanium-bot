@@ -54,7 +54,7 @@ int main(int argc, char** argv)
     }
 
     image_transport::ImageTransport it(nh);
-    image_transport::Subscriber sub = it.subscribe("/camera_pub/raw_image", 1, imageCallback);
+    image_transport::Subscriber sub = it.subscribe("/camera/raw_image", 1, imageCallback);
 
     ros::spin();
 
