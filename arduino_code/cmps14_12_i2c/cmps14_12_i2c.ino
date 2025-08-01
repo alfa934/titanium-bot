@@ -22,10 +22,14 @@ unsigned int angle16;
 float angle_deg_float = -1;
 char tx_buffer[7] = "ABC";
 
+unsigned long prevLedTime = 0;
+uint8_t led_state = 0;
+
 void setup()
 {
   Serial.begin(115200);
   Wire.begin();
+  pinMode(LED_BUILTIN, OUTPUT);
 }
 
 void loop()
@@ -83,6 +87,13 @@ void loop()
       for(int i = 0; i < sizeof(tx_buffer); i++)
       {
         Serial.write(tx_buffer[i]);
+      }
+
+      if(currentTime - prevLedTime >= 250)
+      {
+        prevLedTime = currentTime;
+        led_state = !(led_state);
+        digitalWrite(LED_BUILTIN, led_state);
       }
       
       currentState = IDLE;
