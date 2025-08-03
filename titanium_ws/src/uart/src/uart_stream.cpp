@@ -54,7 +54,7 @@ void serialReadCallback(const ros::TimerEvent& event)
             { 
                 if(serial.available() >= 3 + sizeof(rx_buffer)) //// 3 untuk header 't', 'e', 'l'
                 { 
-                    for(int i=0; i<3+sizeof(rx_buffer); i++)
+                    for(int i = 0; i< 3 + sizeof(rx_buffer); i++)
                     { 
                         if(serial.readBytes(data_head, 1, 1, 1) >= 1)
                         {
