@@ -99,7 +99,9 @@ static void MX_TIM6_Init(void);
 #define MAX_HORIZONTAL_HOME_SPEED 	-250
 #define MAX_VERTICAL_HOME_SPEED 	-100
 
-#define MAX_VERTICAL_POSITION 		2592
+#define MAX_VERTICAL_PULSE 			2592
+#define MAX_HORIZONTAL_PULSE		2250
+#define MAX_ROTATION_PULSE			1838
 
 int16_t TIM6_CNT_MS = 0;
 int16_t enc1_cnt = 0;
@@ -118,8 +120,13 @@ uint8_t arm_state = 0;
 uint16_t arm_cnt_10ms = 0;
 
 PID_t arm_vertical = {0};
+PID_t arm_horizontal = {0};
+PID_t arm_rotation = {0};
 
-int setpoint = 0;
+int16_t set_vertical[2] = {MAX_VERTICAL_PULSE/2, 10};
+int16_t set_horizontal[2] = {MAX_HORIZONTAL_PULSE/2, 10};
+int16_t set_rotation[2] = {MAX_ROTATION_PULSE/2, 10};
+int idx = 0;
 
 void setMotor(uint8_t motor, int16_t speed)
 {
@@ -224,13 +231,23 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					enc3_cnt = -TIM3 -> CNT;
 					TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
 
+					arm_vertical.setpoint = set_vertical[idx];
 					arm_vertical.feedback += (float)enc3_cnt;
-					arm_vertical.setpoint = setpoint;
-					arm_vertical.max_output = 500;
-
+					arm_vertical.max_output = 300;
 					PID_Update(&arm_vertical, arm_vertical.setpoint, arm_vertical.feedback, arm_vertical.max_output);
-
 					setMotor(3, (int16_t)arm_vertical.output);
+
+					arm_horizontal.setpoint = set_horizontal[idx];
+					arm_horizontal.feedback += (float)enc2_cnt;
+					arm_horizontal.max_output = 900;
+					PID_Update(&arm_horizontal, arm_horizontal.setpoint, arm_horizontal.feedback, arm_horizontal.max_output);
+					setMotor(2, (int16_t)arm_horizontal.output);
+
+					arm_rotation.setpoint = set_rotation[idx];
+					arm_rotation.feedback += (float)enc1_cnt;
+					arm_rotation.max_output = 135;
+					PID_Update(&arm_rotation, arm_rotation.setpoint, arm_rotation.feedback, arm_rotation.max_output);
+					setMotor(1, (int16_t)arm_rotation.output);
 
 					break;
 
@@ -308,6 +325,8 @@ int main(void)
   HAL_TIM_PWM_Start(&htim14, TIM_CHANNEL_1);
 
   PID_Init(&arm_vertical, 1, 0, 0);
+  PID_Init(&arm_horizontal, 1, 0, 0.1);
+  PID_Init(&arm_rotation, 1, 0, 0.1);
 
   HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
@@ -316,6 +335,16 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  if(START_BUTTON_STAT == 0)
+	  {
+		  HAL_Delay(5000);
+		  idx++;
+
+		  if(idx >= 1)
+		  {
+			  idx = 1;
+		  }
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
