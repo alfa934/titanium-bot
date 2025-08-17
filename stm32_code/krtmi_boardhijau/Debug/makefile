@@ -70,8 +70,8 @@ all: main-build
 main-build: krtmi_boardhijau.elf secondary-outputs
 
 # Tool invocations
-krtmi_boardhijau.elf krtmi_boardhijau.map: $(OBJS) $(USER_OBJS) C:\Users\ALFA\STM32CubeIDE\workspace_1.14.1\krtmi_boardhijau\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "krtmi_boardhijau.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\ALFA\STM32CubeIDE\workspace_1.14.1\krtmi_boardhijau\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="krtmi_boardhijau.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+krtmi_boardhijau.elf krtmi_boardhijau.map: $(OBJS) $(USER_OBJS) C:\Users\ALFA\Desktop\home\coding\GitHub\titanium-bot\stm32_code\krtmi_boardhijau\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "krtmi_boardhijau.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\ALFA\Desktop\home\coding\GitHub\titanium-bot\stm32_code\krtmi_boardhijau\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="krtmi_boardhijau.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
