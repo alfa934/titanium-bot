@@ -41,9 +41,16 @@ typedef struct
 	int16_t enc_x;
 	int16_t enc_y;
 
+	int16_t enc_1;
+	int16_t enc_2;
+	int16_t enc_3;
+
 	float 	yaw_degree;
 
 	uint16_t ultrasonic[4];
+
+	uint8_t lim2;
+	uint8_t lim3;
 
 } udpTx_t ;
 
@@ -52,6 +59,12 @@ typedef struct
 	int16_t motor_a;
 	int16_t motor_b;
 	int16_t motor_c;
+
+	int16_t motor_1;
+	int16_t motor_2;
+	int16_t motor_3;
+
+	uint8_t relay;
 } udpRx_t ;
 
 extern udpTx_t udp_tx;

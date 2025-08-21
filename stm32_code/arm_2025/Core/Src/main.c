@@ -64,6 +64,8 @@ UART_HandleTypeDef huart5;
 UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef hdma_usart1_rx;
+DMA_HandleTypeDef hdma_usart1_tx;
 
 /* USER CODE BEGIN PV */
 
@@ -72,6 +74,7 @@ UART_HandleTypeDef huart3;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_DMA_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
@@ -96,7 +99,7 @@ static void MX_TIM6_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-#define MAX_HORIZONTAL_HOME_SPEED 	-250
+#define MAX_HORIZONTAL_HOME_SPEED 	-280
 #define MAX_VERTICAL_HOME_SPEED 	-100
 
 #define MAX_VERTICAL_PULSE 			2592
@@ -117,16 +120,25 @@ uint8_t LIM_SW3_STAT = 1;
 uint8_t START_BUTTON_STAT = 1;
 
 uint8_t arm_state = 0;
+uint8_t arm_pos = 0;
 uint16_t arm_cnt_10ms = 0;
 
 PID_t arm_vertical = {0};
 PID_t arm_horizontal = {0};
 PID_t arm_rotation = {0};
 
-int16_t set_vertical[2] = {MAX_VERTICAL_PULSE/2, 10};
+int16_t set_vertical[2] = {MAX_VERTICAL_PULSE - 250, 200};
 int16_t set_horizontal[2] = {MAX_HORIZONTAL_PULSE/2, 10};
 int16_t set_rotation[2] = {MAX_ROTATION_PULSE/2, 10};
 int idx = 0;
+
+
+char UART1_RX_BUFFER[53];
+
+char UART1_TX_BUFFER[53] = "ABC";
+int16_t cnt_rx = 0;
+int16_t cnt_tx = 0;
+
 
 void setMotor(uint8_t motor, int16_t speed)
 {
@@ -186,12 +198,35 @@ uint8_t arm_init()
 
 	if(LIM_SW2_STAT == 0 && LIM_SW3_STAT == 0)
 	{
-		return 1;
+		return 1; //--- Homing Success
 	}
 	else
 	{
-		return 0;
+		return 0; //--- Homing Failed
 	}
+}
+
+void transmit_uart()
+{
+	memcpy(UART1_TX_BUFFER + 3, &cnt_tx, 2);
+	HAL_UART_Transmit_DMA(&huart1, (uint8_t*)UART1_TX_BUFFER, sizeof(UART1_TX_BUFFER));
+	cnt_tx++;
+}
+
+
+void led_blink()
+{
+	static uint16_t timer = 0;
+	static uint8_t state = 0;
+
+	if(timer >= 99)
+	{
+		state = !(state);
+		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_1, state);
+		timer = 0;
+	}
+
+	timer++;
 }
 
 
@@ -199,8 +234,44 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if(htim == &htim6)
 	{
+		led_blink();
+
+		transmit_uart();
+
+
 		if(TIM6_CNT_MS >= 9)
 		{
+			if(START_BUTTON_STAT == 0 && arm_state == 2)
+			{
+			  switch(arm_pos)
+			  {
+			  	  case 0:
+			  		  arm_cnt_10ms++;
+			  		  if(arm_cnt_10ms >= 300)
+			  		  {
+			  			  arm_cnt_10ms = 0;
+			  			  idx++;
+			  			  arm_pos++;
+			  		  }
+			  		  break;
+			  	  case 1:
+			  		  if(abs((int)arm_vertical.error) < 100)
+			  		  {
+			  			  arm_pos++;
+			  		  }
+			  		  break;
+			  	  case 2:
+			  		  arm_cnt_10ms++;
+			  		  if(arm_cnt_10ms >= 20)
+			  		  {
+			  			  arm_cnt_10ms = 0;
+			  			  idx = 0;
+			  			  arm_pos = 0;
+			  		  }
+			  		  break;
+			  }
+			}
+
 			switch(arm_state)
 			{
 				case 0:
@@ -225,6 +296,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					LIM_SW2_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_1);
 					LIM_SW3_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3);
 
+					if(LIM_SW3_STAT == 0)
+					{
+						arm_vertical.feedback = 0;
+					}
+
 
 					enc1_cnt = -TIM1 -> CNT;
 					enc2_cnt = -TIM2 -> CNT;
@@ -233,21 +309,21 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 					arm_vertical.setpoint = set_vertical[idx];
 					arm_vertical.feedback += (float)enc3_cnt;
-					arm_vertical.max_output = 300;
+					arm_vertical.max_output = 900;
 					PID_Update(&arm_vertical, arm_vertical.setpoint, arm_vertical.feedback, arm_vertical.max_output);
 					setMotor(3, (int16_t)arm_vertical.output);
 
-					arm_horizontal.setpoint = set_horizontal[idx];
-					arm_horizontal.feedback += (float)enc2_cnt;
-					arm_horizontal.max_output = 900;
-					PID_Update(&arm_horizontal, arm_horizontal.setpoint, arm_horizontal.feedback, arm_horizontal.max_output);
-					setMotor(2, (int16_t)arm_horizontal.output);
-
-					arm_rotation.setpoint = set_rotation[idx];
-					arm_rotation.feedback += (float)enc1_cnt;
-					arm_rotation.max_output = 135;
-					PID_Update(&arm_rotation, arm_rotation.setpoint, arm_rotation.feedback, arm_rotation.max_output);
-					setMotor(1, (int16_t)arm_rotation.output);
+//					arm_horizontal.setpoint = set_horizontal[idx];
+//					arm_horizontal.feedback += (float)enc2_cnt;
+//					arm_horizontal.max_output = 900;
+//					PID_Update(&arm_horizontal, arm_horizontal.setpoint, arm_horizontal.feedback, arm_horizontal.max_output);
+//					setMotor(2, (int16_t)arm_horizontal.output);
+//
+//					arm_rotation.setpoint = set_rotation[idx];
+//					arm_rotation.feedback += (float)enc1_cnt;
+//					arm_rotation.max_output = 135;
+//					PID_Update(&arm_rotation, arm_rotation.setpoint, arm_rotation.feedback, arm_rotation.max_output);
+//					setMotor(1, (int16_t)arm_rotation.output);
 
 					break;
 
@@ -262,6 +338,41 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 		TIM6_CNT_MS++;
 	}
 }
+
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart == &huart1) //--- VGT BASE
+	{
+		memcpy(&cnt_rx, UART1_RX_BUFFER + 3, 2);
+
+		HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
+	}
+}
+
+void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart == &huart1) //--- VGT BASE
+	{
+		if(!(UART1_RX_BUFFER[0] == 'A' && UART1_RX_BUFFER[1] == 'B' && UART1_RX_BUFFER[2] == 'C'))
+		{
+			HAL_UART_AbortReceive(&huart1);
+			HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
+		}
+	}
+
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+	if(huart == &huart1) //--- VGT BASE
+	{
+		HAL_UART_AbortReceive(&huart1);
+		HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
+	}
+}
+
+
 /* USER CODE END 0 */
 
 /**
@@ -293,6 +404,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM1_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
@@ -328,6 +440,8 @@ int main(void)
   PID_Init(&arm_horizontal, 1, 0, 0.1);
   PID_Init(&arm_rotation, 1, 0, 0.1);
 
+  HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
+
   HAL_TIM_Base_Start_IT(&htim6);
   /* USER CODE END 2 */
 
@@ -335,16 +449,6 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  if(START_BUTTON_STAT == 0)
-	  {
-		  HAL_Delay(5000);
-		  idx++;
-
-		  if(idx >= 1)
-		  {
-			  idx = 1;
-		  }
-	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -1173,6 +1277,25 @@ static void MX_USART3_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA2_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA2_Stream2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream2_IRQn);
+  /* DMA2_Stream7_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA2_Stream7_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA2_Stream7_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -1194,15 +1317,15 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOE, GPIO_PIN_2|GPIO_PIN_4|GPIO_PIN_8|GPIO_PIN_10
-                          |GPIO_PIN_14, GPIO_PIN_RESET);
+                          |GPIO_PIN_14|GPIO_PIN_1, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, GPIO_PIN_8|GPIO_PIN_10|GPIO_PIN_11, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PE2 PE4 PE8 PE10
-                           PE14 */
+                           PE14 PE1 */
   GPIO_InitStruct.Pin = GPIO_PIN_2|GPIO_PIN_4|GPIO_PIN_8|GPIO_PIN_10
-                          |GPIO_PIN_14;
+                          |GPIO_PIN_14|GPIO_PIN_1;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
