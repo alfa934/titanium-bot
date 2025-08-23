@@ -113,8 +113,14 @@ int16_t cnt_tx = 0;
 float yaw_degree;
 float yaw_radian;
 float yaw_adjust;
+float yaw_flip;
 uint16_t UltraSonic[4];
 
+
+float flip_yaw(float original_yaw)
+{
+    return 360.0f - fmodf(original_yaw, 360.0f);
+}
 
 void Robot_Init()
 {
@@ -171,9 +177,6 @@ void Robot_Motor()
 //
 //		PID_Update(&PID_VW, UltraSonic[0], UltraSonic[1], 5);
 
-		vx = 3;
-		vy = 0;
-		vw = 0;
 
 		int16_t va = Kinematics_Triangle(MOTOR_A, vx, vy, vw);
 		int16_t vb = Kinematics_Triangle(MOTOR_B, vx, vy, vw);
@@ -295,17 +298,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 //		vw_controller = -(input.rX);
 
 		//--- Field Centric
-//		vx_controller = input.lX *  cos(yaw_radian) + input.lY * sin(yaw_radian);
-//		vy_controller = input.lX * -sin(yaw_radian) + input.lY * cos(yaw_radian);
-//		vw_controller = -(input.rX);
-//
-//		vx = vx_controller;
-//		vy = vy_controller;
-//		vw = vw_controller;
+		vx_controller = input.lX *  cos(yaw_radian) + input.lY * sin(yaw_radian);
+		vy_controller = input.lX * -sin(yaw_radian) + input.lY * cos(yaw_radian);
+		vw_controller = -(input.rX);
+
+		vx = vx_controller;
+		vy = vy_controller;
+		vw = vw_controller;
 
 		if(input.crs)
 		{
-			yaw_adjust = yaw_degree;
+			yaw_adjust = yaw_flip;
 		}
 
 
@@ -338,10 +341,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	{
 		memcpy(&yaw_degree, UART6_RX_BUFFER + 3, 4);
 
-		yaw_radian = (yaw_degree - yaw_adjust) * M_PI/180.0;
+		yaw_flip = flip_yaw(yaw_degree);
+
+		yaw_radian = (yaw_flip - yaw_adjust) * M_PI/180.0;
 
 		/* Save UDP */
-		udp_tx.yaw_degree = yaw_degree;
+		udp_tx.yaw_degree = yaw_flip;
 
 		HAL_UART_Receive_DMA(&huart6, (uint8_t*)UART6_RX_BUFFER, sizeof(UART6_RX_BUFFER));
 	}
