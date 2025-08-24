@@ -35,5 +35,6 @@ typedef struct
 /* Functions */
 void PID_Init(PID_t *uPID, float kp, float ki, float kd);
 void PID_Update(PID_t *uPID, float setpoint, float feedback, float max_output);
+void PID_Update_Rotate(PID_t *uPID, float setpoint, float feedback, float max_output);
 
 #endif /* INC_PID_H_ */

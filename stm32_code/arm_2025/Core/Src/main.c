@@ -99,12 +99,16 @@ static void MX_TIM6_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-#define MAX_HORIZONTAL_HOME_SPEED 	-280
+#define MAX_HORIZONTAL_HOME_SPEED 	-350
 #define MAX_VERTICAL_HOME_SPEED 	-100
 
 #define MAX_VERTICAL_PULSE 			2592
 #define MAX_HORIZONTAL_PULSE		2250
-#define MAX_ROTATION_PULSE			1838
+#define MAX_ROTATION_PULSE			1840
+
+#define MAX_VERTICAL_PID_SPEED		900
+#define MAX_HORIZONTAL_PID_SPEED	900
+#define MAX_ROTATION_PID_SPEED		400
 
 int16_t TIM6_CNT_MS = 0;
 int16_t enc1_cnt = 0;
@@ -127,17 +131,13 @@ PID_t arm_vertical = {0};
 PID_t arm_horizontal = {0};
 PID_t arm_rotation = {0};
 
-int16_t set_vertical[2] = {MAX_VERTICAL_PULSE - 250, 200};
-int16_t set_horizontal[2] = {MAX_HORIZONTAL_PULSE/2, 10};
-int16_t set_rotation[2] = {MAX_ROTATION_PULSE/2, 10};
-int idx = 0;
-
+int16_t arm_setpoints[3] = {0};
+int16_t arm_feedbacks[3] = {0};
+uint8_t reset_rotation = 0;
 
 char UART1_RX_BUFFER[53];
 
 char UART1_TX_BUFFER[53] = "ABC";
-int16_t cnt_rx = 0;
-int16_t cnt_tx = 0;
 
 
 void setMotor(uint8_t motor, int16_t speed)
@@ -208,9 +208,12 @@ uint8_t arm_init()
 
 void transmit_uart()
 {
-	memcpy(UART1_TX_BUFFER + 3, &cnt_tx, 2);
+	memcpy(UART1_TX_BUFFER + 3, &arm_feedbacks[0], 2);
+	memcpy(UART1_TX_BUFFER + 5, &arm_feedbacks[1], 2);
+	memcpy(UART1_TX_BUFFER + 7, &arm_feedbacks[2], 2);
 	HAL_UART_Transmit_DMA(&huart1, (uint8_t*)UART1_TX_BUFFER, sizeof(UART1_TX_BUFFER));
-	cnt_tx++;
+
+
 }
 
 
@@ -241,36 +244,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		if(TIM6_CNT_MS >= 9)
 		{
-			if(START_BUTTON_STAT == 0 && arm_state == 2)
-			{
-			  switch(arm_pos)
-			  {
-			  	  case 0:
-			  		  arm_cnt_10ms++;
-			  		  if(arm_cnt_10ms >= 300)
-			  		  {
-			  			  arm_cnt_10ms = 0;
-			  			  idx++;
-			  			  arm_pos++;
-			  		  }
-			  		  break;
-			  	  case 1:
-			  		  if(abs((int)arm_vertical.error) < 100)
-			  		  {
-			  			  arm_pos++;
-			  		  }
-			  		  break;
-			  	  case 2:
-			  		  arm_cnt_10ms++;
-			  		  if(arm_cnt_10ms >= 20)
-			  		  {
-			  			  arm_cnt_10ms = 0;
-			  			  idx = 0;
-			  			  arm_pos = 0;
-			  		  }
-			  		  break;
-			  }
-			}
 
 			switch(arm_state)
 			{
@@ -282,23 +255,38 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					break;
 
 				case 1:
-					START_BUTTON_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_0);
-
-					if(START_BUTTON_STAT == 0)
+					arm_cnt_10ms++;
+					if(arm_cnt_10ms >= 200)
 					{
-						//--- Reset all encoders after homing
-						TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
-						arm_state++;
+					  arm_cnt_10ms = 0;
+					  TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
+					  arm_state++;
 					}
+//					START_BUTTON_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_0);
+//
+//					if(START_BUTTON_STAT == 0)
+//					{
+//						//--- Reset all encoders after homing
+//						TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
+//						arm_state++;
+//					}
 					break;
 
 				case 2:
 					LIM_SW2_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_1);
 					LIM_SW3_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3);
 
+					if(reset_rotation)
+					{
+						arm_feedbacks[0] = 0;
+					}
+					if(LIM_SW2_STAT == 0)
+					{
+						arm_feedbacks[1] = 0;
+					}
 					if(LIM_SW3_STAT == 0)
 					{
-						arm_vertical.feedback = 0;
+						arm_feedbacks[2] = 0;
 					}
 
 
@@ -307,24 +295,19 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					enc3_cnt = -TIM3 -> CNT;
 					TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
 
-					arm_vertical.setpoint = set_vertical[idx];
-					arm_vertical.feedback += (float)enc3_cnt;
-					arm_vertical.max_output = 900;
-					PID_Update(&arm_vertical, arm_vertical.setpoint, arm_vertical.feedback, arm_vertical.max_output);
+					arm_feedbacks[0] += enc1_cnt;
+					arm_feedbacks[1] += enc2_cnt;
+					arm_feedbacks[2] += enc3_cnt;
+
+//					arm_setpoints[0] = 460;
+
+					PID_Update(&arm_rotation, (float)arm_setpoints[0], (float)arm_feedbacks[0], (float)MAX_ROTATION_PID_SPEED);
+					PID_Update(&arm_horizontal, (float)arm_setpoints[1], (float)arm_feedbacks[1], (float)MAX_HORIZONTAL_PID_SPEED);
+					PID_Update(&arm_vertical, (float)arm_setpoints[2], (float)arm_feedbacks[2], (float)MAX_VERTICAL_PID_SPEED);
+
+					setMotor(1, (int16_t)arm_rotation.output);
+					setMotor(2, (int16_t)arm_horizontal.output);
 					setMotor(3, (int16_t)arm_vertical.output);
-
-//					arm_horizontal.setpoint = set_horizontal[idx];
-//					arm_horizontal.feedback += (float)enc2_cnt;
-//					arm_horizontal.max_output = 900;
-//					PID_Update(&arm_horizontal, arm_horizontal.setpoint, arm_horizontal.feedback, arm_horizontal.max_output);
-//					setMotor(2, (int16_t)arm_horizontal.output);
-//
-//					arm_rotation.setpoint = set_rotation[idx];
-//					arm_rotation.feedback += (float)enc1_cnt;
-//					arm_rotation.max_output = 135;
-//					PID_Update(&arm_rotation, arm_rotation.setpoint, arm_rotation.feedback, arm_rotation.max_output);
-//					setMotor(1, (int16_t)arm_rotation.output);
-
 					break;
 
 				default:
@@ -344,7 +327,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart == &huart1) //--- VGT BASE
 	{
-		memcpy(&cnt_rx, UART1_RX_BUFFER + 3, 2);
+		memcpy(&arm_setpoints[0], UART1_RX_BUFFER + 3, 2);
+		memcpy(&arm_setpoints[1], UART1_RX_BUFFER + 5, 2);
+		memcpy(&arm_setpoints[2], UART1_RX_BUFFER + 7, 2);
+		memcpy(&reset_rotation, UART1_RX_BUFFER + 9, 1);
 
 		HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
 	}
@@ -389,7 +375,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-  HAL_Init();
+ HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -437,8 +423,8 @@ int main(void)
   HAL_TIM_PWM_Start(&htim14, TIM_CHANNEL_1);
 
   PID_Init(&arm_vertical, 1, 0, 0);
-  PID_Init(&arm_horizontal, 1, 0, 0.1);
-  PID_Init(&arm_rotation, 1, 0, 0.1);
+  PID_Init(&arm_horizontal, 2.1, 0, 0.1);
+  PID_Init(&arm_rotation, 2, 0, 50);
 
   HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
 
@@ -707,7 +693,7 @@ static void MX_TIM5_Init(void)
 {
 
   /* USER CODE BEGIN TIM5_Init 0 */
-
+	arm_rotation.setpoint = 920;
   /* USER CODE END TIM5_Init 0 */
 
   TIM_Encoder_InitTypeDef sConfig = {0};

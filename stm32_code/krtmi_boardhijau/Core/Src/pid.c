@@ -60,3 +60,32 @@ void PID_Update(PID_t *uPID, float setpoint, float feedback, float max_output)
 
 	return;
 }
+
+
+void PID_Update_Rotate(PID_t *uPID, float setpoint, float feedback, float max_output)
+{
+	uPID->setpoint 		= setpoint;
+	uPID->feedback 		= feedback;
+	uPID->max_output 	= max_output;
+
+	uPID->error = uPID->setpoint - uPID->feedback;
+
+	if(uPID->error > 180) 			{ setpoint -= 360; }
+	else if(uPID->error < -180) 	{ setpoint += 360; }
+	uPID->error = setpoint - feedback;
+
+	uPID->proportional = uPID->kp * uPID->error;
+	uPID->integral    += uPID->ki * uPID->error;
+	uPID->derivative   = uPID->kd * (uPID->error - uPID->prev_error);
+	uPID->prev_error   = uPID->error;
+
+	if(uPID->integral >= uPID->max_output) 			{ uPID->integral =   uPID->max_output;  }
+	else if(uPID->integral < -(uPID->max_output)) 	{ uPID->integral = -(uPID->max_output); }
+
+	uPID->output = (uPID->proportional) + (uPID->integral) + (uPID->derivative);
+
+	if(uPID->output >= uPID->max_output) 			{ uPID->output =   uPID->max_output;  }
+	else if(uPID->output < -(uPID->max_output)) 	{ uPID->output = -(uPID->max_output); }
+
+	return;
+}

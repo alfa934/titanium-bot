@@ -34,10 +34,6 @@
 
 typedef struct
 {
-	int16_t enc_a;
-	int16_t enc_b;
-	int16_t enc_c;
-
 	int16_t enc_x;
 	int16_t enc_y;
 

@@ -92,24 +92,26 @@ int16_t vy;
 int16_t vw;
 int16_t vx_controller;
 int16_t vy_controller;
-int16_t vw_controller;
+float   vw_controller;
 
 float kp;
 float ki;
 float kd;
 
-char UART1_RX_BUFFER[53];
+char UART1_RX_BUFFER[53]; //--- VGT ARM
 char UART2_RX_BUFFER[23];
 char UART3_RX_BUFFER[43];
 char UART4_RX_BUFFER[53];
 char UART5_RX_BUFFER[23];
-char UART6_RX_BUFFER[7];
+char UART6_RX_BUFFER[7];  //--- NANO YAW
 
 char UART1_TX_BUFFER[53] = "ABC";
-int16_t cnt_rx = 0;
-int16_t cnt_tx = 0;
 
+int16_t arm_setpoints[3] = {0};
+int16_t arm_feedbacks[3] = {0};
+uint8_t reset_rotation = 0;
 
+float yaw_degree_raw;
 float yaw_degree;
 float yaw_radian;
 float yaw_adjust;
@@ -117,9 +119,115 @@ float yaw_flip;
 uint16_t UltraSonic[4];
 
 
+
 float flip_yaw(float original_yaw)
 {
     return 360.0f - fmodf(original_yaw, 360.0f);
+}
+
+void yaw_process()
+{
+	static uint8_t offset_once = 0;
+	yaw_degree = flip_yaw(yaw_degree_raw);
+
+	if(yaw_degree > 180.001)
+	{
+		yaw_degree -= 360.001;
+	}
+	else if(yaw_degree < -180.001)
+	{
+		yaw_degree += 360.001;
+	}
+
+	if(input.crs)
+	{
+		yaw_adjust = yaw_degree;
+		vw_controller = 0;
+	}
+
+	if(!offset_once)
+	{
+		yaw_adjust = yaw_degree;
+		offset_once++;
+	}
+
+	yaw_degree = yaw_degree - yaw_adjust;
+
+	yaw_radian = yaw_degree * M_PI/180.0;
+}
+
+void controller_process()
+{
+	static float arm_set_0 = 0;
+	static float arm_set_1 = 0;
+
+	if(input.r1 && arm_setpoints[0] >= -920)
+	{
+		arm_set_0 -= 0.5;
+	}
+	else if(input.l1 && arm_setpoints[0] <= 920)
+	{
+		arm_set_0 += 0.5;
+	}
+
+
+	if(input.up && arm_setpoints[1] < 2250)
+	{
+		arm_set_1 += 1;
+
+	}
+	else if(input.down && arm_setpoints[1] >= 0)
+	{
+		arm_set_1 -= 1;
+	}
+
+	if(input.tri)
+	{
+		reset_rotation = 1;
+		arm_set_0 = 0;
+	}
+	else
+	{
+		reset_rotation = 0;
+	}
+
+	arm_setpoints[0] = (int16_t)arm_set_0;
+	arm_setpoints[1] = (int16_t)arm_set_1;
+	arm_setpoints[2] = map(input.r2, 0, 255, 2592 - 50, 35);
+
+
+	input.lX = Controller_Drift(input.lX_raw, 12);
+	input.lY = Controller_Drift(input.lY_raw, 12);
+	input.rX = Controller_Drift(input.rX_raw, 12);
+	input.rY = Controller_Drift(input.rY_raw, 12);
+
+	input.lX = map(input.lX, -128, 127, -30, 30);
+	input.lY = map(input.lY, -128, 127, -30, 30);
+	input.rX = map(input.rX, -128, 127, -3, 3);
+	input.rY = map(input.rY, -128, 127, -30, 30);
+
+	//--- Robot Centric
+//		vx_controller = input.lX;
+//		vy_controller = input.lY;
+//		vw_controller = -(input.rX);
+
+	//--- Field Centric
+	vx_controller = input.lX *  cos(yaw_radian) + input.lY * sin(yaw_radian);
+	vy_controller = input.lX * -sin(yaw_radian) + input.lY * cos(yaw_radian);
+	vw_controller += -(input.rX) / 20.0;
+
+    if (vw_controller > 180.0f)
+    {
+    	vw_controller -= 360.0f;
+    }
+    else if (vw_controller < -180.0f)
+    {
+    	vw_controller += 360.0f;
+    }
+
+	vx = vx_controller;
+	vy = vy_controller;
+	vw = vw_controller;
 }
 
 void Robot_Init()
@@ -151,7 +259,7 @@ void Robot_Init()
     PID_Init(&PID_B, kp, ki, kd);
     PID_Init(&PID_C, kp, ki, kd);
     PID_Init(&PID_VY, 0.65, 0, 0);
-    PID_Init(&PID_VW, 0.5, 0, 0);
+    PID_Init(&PID_VW, 0.45, 0, 10);
 
     HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
     HAL_UART_Receive_DMA(&huart2, (uint8_t*)UART2_RX_BUFFER, sizeof(UART2_RX_BUFFER));
@@ -177,10 +285,11 @@ void Robot_Motor()
 //
 //		PID_Update(&PID_VW, UltraSonic[0], UltraSonic[1], 5);
 
+		PID_Update_Rotate(&PID_VW, vw, yaw_degree, 5);
 
-		int16_t va = Kinematics_Triangle(MOTOR_A, vx, vy, vw);
-		int16_t vb = Kinematics_Triangle(MOTOR_B, vx, vy, vw);
-		int16_t vc = Kinematics_Triangle(MOTOR_C, vx, vy, vw);
+		int16_t va = Kinematics_Triangle(MOTOR_A, vx, vy, (int16_t)PID_VW.output);
+		int16_t vb = Kinematics_Triangle(MOTOR_B, vx, vy, (int16_t)PID_VW.output);
+		int16_t vc = Kinematics_Triangle(MOTOR_C, vx, vy, (int16_t)PID_VW.output);
 
 //		int16_t va = udp_rx.motor_a;
 //		int16_t vb = udp_rx.motor_b;
@@ -191,10 +300,6 @@ void Robot_Motor()
 		Encoder_GetCount(&encB);
 		Encoder_GetCount(&encC);
 
-		/* Save UDP */
-		udp_tx.enc_a = encA.count;
-		udp_tx.enc_b = encB.count;
-		udp_tx.enc_c = encC.count;
 
 		Encoder_ResetCount(&encA);
 		Encoder_ResetCount(&encB);
@@ -231,13 +336,18 @@ void Robot_LED_Blink()
 
 void Robot_Transmit_UART()
 {
-	memcpy(UART1_TX_BUFFER + 3, &cnt_tx, 2);
+	memcpy(UART1_TX_BUFFER + 3, &arm_setpoints[0], 2);
+	memcpy(UART1_TX_BUFFER + 5, &arm_setpoints[1], 2);
+	memcpy(UART1_TX_BUFFER + 7, &arm_setpoints[2], 2);
+	memcpy(UART1_TX_BUFFER + 9, &reset_rotation, 1);
 	HAL_UART_Transmit_DMA(&huart1, (uint8_t*)UART1_TX_BUFFER, sizeof(UART1_TX_BUFFER));
-	cnt_tx++;
 }
 
 void Robot_Loop()
 {
+	yaw_process();
+	controller_process();
+
 	Robot_Transmit_UART();
 
 	Robot_Motor();
@@ -261,7 +371,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart == &huart1) //--- VGT ARM
 	{
-		memcpy(&cnt_rx, UART1_RX_BUFFER + 3, 2);
+		memcpy(&arm_feedbacks[0], UART1_RX_BUFFER + 3, 2);
+		memcpy(&arm_feedbacks[1], UART1_RX_BUFFER + 5, 2);
+		memcpy(&arm_feedbacks[2], UART1_RX_BUFFER + 7, 2);
 
 		HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
 	}
@@ -282,36 +394,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	{
 		memcpy((uint8_t*)&input + 4, UART3_RX_BUFFER + 3, sizeof(input) - 4);
 
-		input.lX = Controller_Drift(input.lX_raw, 12);
-		input.lY = Controller_Drift(input.lY_raw, 12);
-		input.rX = Controller_Drift(input.rX_raw, 12);
-		input.rY = Controller_Drift(input.rY_raw, 12);
-
-		input.lX = map(input.lX, -128, 127, -30, 30);
-		input.lY = map(input.lY, -128, 127, -30, 30);
-		input.rX = map(input.rX, -128, 127, -15, 15);
-		input.rY = map(input.rY, -128, 127, -30, 30);
-
-		//--- Robot Centric
-//		vx_controller = input.lX;
-//		vy_controller = input.lY;
-//		vw_controller = -(input.rX);
-
-		//--- Field Centric
-		vx_controller = input.lX *  cos(yaw_radian) + input.lY * sin(yaw_radian);
-		vy_controller = input.lX * -sin(yaw_radian) + input.lY * cos(yaw_radian);
-		vw_controller = -(input.rX);
-
-		vx = vx_controller;
-		vy = vy_controller;
-		vw = vw_controller;
-
-		if(input.crs)
-		{
-			yaw_adjust = yaw_flip;
-		}
-
-
 		HAL_UART_Receive_DMA(&huart3, (uint8_t*)UART3_RX_BUFFER, sizeof(UART3_RX_BUFFER));
 	}
 
@@ -321,8 +403,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		memcpy(&encY.count, UART4_RX_BUFFER + 5, 2);
 
 		/* Save UDP */
-		memcpy(&udp_tx.enc_x, &encX.count, 2);
-		memcpy(&udp_tx.enc_y, &encY.count, 2);
+		udp_tx.enc_x = encX.count;
+		udp_tx.enc_y = encY.count;
 
 		HAL_UART_Receive_DMA(&huart4, (uint8_t*)UART4_RX_BUFFER, sizeof(UART4_RX_BUFFER));
 	}
@@ -337,16 +419,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		HAL_UART_Receive_DMA(&huart5, (uint8_t*)UART5_RX_BUFFER, sizeof(UART5_RX_BUFFER));
 	}
 
-	if(huart == &huart6)
+	if(huart == &huart6) //--- NANO YAW
 	{
-		memcpy(&yaw_degree, UART6_RX_BUFFER + 3, 4);
-
-		yaw_flip = flip_yaw(yaw_degree);
-
-		yaw_radian = (yaw_flip - yaw_adjust) * M_PI/180.0;
+		memcpy(&yaw_degree_raw, UART6_RX_BUFFER + 3, 4);
 
 		/* Save UDP */
-		udp_tx.yaw_degree = yaw_flip;
+		udp_tx.yaw_degree = yaw_degree;
 
 		HAL_UART_Receive_DMA(&huart6, (uint8_t*)UART6_RX_BUFFER, sizeof(UART6_RX_BUFFER));
 	}
@@ -400,7 +478,7 @@ void HAL_UART_RxHalfCpltCallback(UART_HandleTypeDef *huart)
 		}
 	}
 
-	if(huart == &huart6)
+	if(huart == &huart6) //--- NANO YAW
 	{
 		if(!(UART6_RX_BUFFER[0] == 'A' && UART6_RX_BUFFER[1] == 'B' && UART6_RX_BUFFER[2] == 'C'))
 		{
@@ -443,7 +521,7 @@ void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
 		HAL_UART_Receive_DMA(&huart5, (uint8_t*)UART5_RX_BUFFER, sizeof(UART5_RX_BUFFER));
 	}
 
-	if(huart == &huart6)
+	if(huart == &huart6) //--- NANO YAW
 	{
 		HAL_UART_AbortReceive(&huart6);
 		HAL_UART_Receive_DMA(&huart6, (uint8_t*)UART6_RX_BUFFER, sizeof(UART6_RX_BUFFER));
@@ -492,6 +570,14 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM3_Init();
   MX_TIM4_Init();
+  /* Configure the system clock */
+  SystemClock_Config();
+
+  /* USER CODE BEGIN SysInit */
+
+  /* USER CODE END SysInit */
+
+  /* Initialize all configured peripherals */
   MX_TIM5_Init();
   MX_TIM8_Init();
   MX_TIM9_Init();
