@@ -183,6 +183,12 @@ target_link_libraries(blob_detection
   ${OpenCV_LIBRARIES}
 )
 
+add_executable(trash_detection src/trash_detection.cpp)
+target_link_libraries(trash_detection
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+)
+
 #############
 ## Install ##
 #############

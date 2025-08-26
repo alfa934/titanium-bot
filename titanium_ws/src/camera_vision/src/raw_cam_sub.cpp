@@ -13,7 +13,6 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
         cv::Mat final_frame;
 
         //-- Add processing here
-        cv::cvtColor(frame, final_frame, cv::COLOR_BGR2GRAY);
 
         if (show_display)
         {

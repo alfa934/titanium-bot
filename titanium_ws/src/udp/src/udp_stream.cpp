@@ -46,13 +46,22 @@ void udpReadCallback(const ros::TimerEvent &event)
 		memcpy(&encoder.enc_c, rx_buffer + 7, 2);
 		memcpy(&encoder.enc_x, rx_buffer + 9, 2);
 		memcpy(&encoder.enc_y, rx_buffer + 11, 2);
-		memcpy(&yaw.degree, rx_buffer + 13, 4);
-		memcpy(&ultrasonic.ultra_a, rx_buffer + 17, 2);
-		memcpy(&ultrasonic.ultra_b, rx_buffer + 19, 2);
-		memcpy(&ultrasonic.ultra_c, rx_buffer + 21, 2);
-		memcpy(&ultrasonic.ultra_d, rx_buffer + 23, 2);
+        memcpy(&encoder.enc_1, rx_buffer + 13, 2);
+        memcpy(&encoder.enc_2, rx_buffer + 17, 2);
+        memcpy(&encoder.enc_3, rx_buffer + 19, 2);
+		
+        memcpy(&yaw.degree, rx_buffer + 21, 4);
+        yaw.radian = yaw.degree * (180.0 / M_PI);
+		
+        memcpy(&ultrasonic.ultra_a, rx_buffer + 25, 2);
+		memcpy(&ultrasonic.ultra_b, rx_buffer + 27, 2);
+		memcpy(&ultrasonic.ultra_c, rx_buffer + 29, 2);
+		memcpy(&ultrasonic.ultra_d, rx_buffer + 31, 2);
 
-		yaw.radian = yaw.degree * (180.0 / M_PI);
+        memcpy(&limit_switch.lim_2, rx_buffer + 33, 1);
+        memcpy(&limit_switch.lim_3, rx_buffer + 34, 1);
+
+		
 
 		pub_encoder.publish(encoder);
 		pub_limit.publish(limit_switch);
@@ -66,6 +75,9 @@ void udpWriteCallback(const ros::TimerEvent &event)
 	memcpy(tx_buffer +  3, &motor.motor_a, 2);
     memcpy(tx_buffer +  5, &motor.motor_b, 2);
     memcpy(tx_buffer +  7, &motor.motor_c, 2);
+    memcpy(tx_buffer +  9, &motor.motor_1, 2);
+    memcpy(tx_buffer + 11, &motor.motor_2, 2);
+    memcpy(tx_buffer + 13, &motor.motor_3, 2);
 	
     socklen_t len = sizeof(cliaddr);
 	sendto(sockfd, tx_buffer, sizeof(tx_buffer), MSG_CONFIRM,
@@ -77,6 +89,9 @@ void motorCallback(const robot_msgs::motorConstPtr &msg)
 	motor.motor_a = msg->motor_a;
 	motor.motor_b = msg->motor_b;
 	motor.motor_c = msg->motor_c;
+    motor.motor_1 = msg->motor_1;
+    motor.motor_2 = msg->motor_2;
+    motor.motor_3 = msg->motor_3;
 }
 
 void initSocket()

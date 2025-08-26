@@ -11,8 +11,8 @@ int main(int argc, char** argv)
     ros::NodeHandle private_nh("~");
 
     int width, height;
-    private_nh.param("width", width, 640);
-    private_nh.param("height", height, 480);
+    private_nh.param("width", width, 640); //--- 640
+    private_nh.param("height", height, 480); //--- 480
 
     ROS_INFO("Starting [raw_cam_pub] at %dx%d", width, height);
 
@@ -20,8 +20,8 @@ int main(int argc, char** argv)
     image_transport::Publisher pub = it.advertise("/camera/raw_image", 1);
 
     cv::VideoCapture cap(0);
-    cap.set(cv::CAP_PROP_FRAME_WIDTH, 640);
-    cap.set(cv::CAP_PROP_FRAME_HEIGHT, 480);
+    cap.set(cv::CAP_PROP_FRAME_WIDTH, width);
+    cap.set(cv::CAP_PROP_FRAME_HEIGHT, height);
 
     if (!cap.isOpened())
     {
