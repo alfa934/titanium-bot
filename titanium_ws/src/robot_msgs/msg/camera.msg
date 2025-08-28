@@ -1,0 +1,5 @@
+bool trashDetected
+int16 cameraCenterX
+int16 cameraCenterY
+int16 closestTrashX
+int16 closestTrashY
