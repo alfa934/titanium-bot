@@ -211,6 +211,8 @@ void transmit_uart()
 	memcpy(UART1_TX_BUFFER + 3, &arm_feedbacks[0], 2);
 	memcpy(UART1_TX_BUFFER + 5, &arm_feedbacks[1], 2);
 	memcpy(UART1_TX_BUFFER + 7, &arm_feedbacks[2], 2);
+	memcpy(UART1_TX_BUFFER + 9, &LIM_SW2_STAT, 1);
+	memcpy(UART1_TX_BUFFER + 10, &LIM_SW3_STAT, 1);
 	HAL_UART_Transmit_DMA(&huart1, (uint8_t*)UART1_TX_BUFFER, sizeof(UART1_TX_BUFFER));
 
 
@@ -293,21 +295,29 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 					enc1_cnt = -TIM1 -> CNT;
 					enc2_cnt = -TIM2 -> CNT;
 					enc3_cnt = -TIM3 -> CNT;
+
+					arm_feedbacks[0] = enc1_cnt;
+					arm_feedbacks[1] = enc2_cnt;
+					arm_feedbacks[2] = enc3_cnt;
+
 					TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
 
-					arm_feedbacks[0] += enc1_cnt;
-					arm_feedbacks[1] += enc2_cnt;
-					arm_feedbacks[2] += enc3_cnt;
+					setMotor(1, arm_setpoints[0]);
+					setMotor(2, arm_setpoints[1]);
+					setMotor(3, arm_setpoints[2]);
 
-//					arm_setpoints[0] = 460;
+//					arm_feedbacks[0] += enc1_cnt;
+//					arm_feedbacks[1] += enc2_cnt;
+//					arm_feedbacks[2] += enc3_cnt;
+//
+//					PID_Update(&arm_rotation, (float)arm_setpoints[0], (float)arm_feedbacks[0], (float)MAX_ROTATION_PID_SPEED);
+//					PID_Update(&arm_horizontal, (float)arm_setpoints[1], (float)arm_feedbacks[1], (float)MAX_HORIZONTAL_PID_SPEED);
+//					PID_Update(&arm_vertical, (float)arm_setpoints[2], (float)arm_feedbacks[2], (float)MAX_VERTICAL_PID_SPEED);
+//
+//					setMotor(1, (int16_t)arm_rotation.output);
+//					setMotor(2, (int16_t)arm_horizontal.output);
+//					setMotor(3, (int16_t)arm_vertical.output);
 
-					PID_Update(&arm_rotation, (float)arm_setpoints[0], (float)arm_feedbacks[0], (float)MAX_ROTATION_PID_SPEED);
-					PID_Update(&arm_horizontal, (float)arm_setpoints[1], (float)arm_feedbacks[1], (float)MAX_HORIZONTAL_PID_SPEED);
-					PID_Update(&arm_vertical, (float)arm_setpoints[2], (float)arm_feedbacks[2], (float)MAX_VERTICAL_PID_SPEED);
-
-					setMotor(1, (int16_t)arm_rotation.output);
-					setMotor(2, (int16_t)arm_horizontal.output);
-					setMotor(3, (int16_t)arm_vertical.output);
 					break;
 
 				default:

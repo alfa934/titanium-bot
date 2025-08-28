@@ -108,7 +108,6 @@ char UART6_RX_BUFFER[7];  //--- NANO YAW
 char UART1_TX_BUFFER[53] = "ABC";
 
 int16_t arm_setpoints[3] = {0};
-int16_t arm_feedbacks[3] = {0};
 uint8_t reset_rotation = 0;
 
 float yaw_degree_raw;
@@ -191,10 +190,9 @@ void controller_process()
 		reset_rotation = 0;
 	}
 
-	arm_setpoints[0] = (int16_t)arm_set_0;
-	arm_setpoints[1] = (int16_t)arm_set_1;
-	arm_setpoints[2] = map(input.r2, 0, 255, 2592 - 50, 35);
-
+//	arm_setpoints[0] = (int16_t)arm_set_0;
+//	arm_setpoints[1] = (int16_t)arm_set_1;
+//	arm_setpoints[2] = map(input.r2, 0, 255, 2592 - 50, 35);
 
 	input.lX = Controller_Drift(input.lX_raw, 12);
 	input.lY = Controller_Drift(input.lY_raw, 12);
@@ -300,6 +298,10 @@ void Robot_Motor()
 		Encoder_GetCount(&encB);
 		Encoder_GetCount(&encC);
 
+		/* Save UDP */
+		udp_tx.enc_a = encA.count;
+		udp_tx.enc_b = encB.count;
+		udp_tx.enc_c = encC.count;
 
 		Encoder_ResetCount(&encA);
 		Encoder_ResetCount(&encB);
@@ -336,6 +338,10 @@ void Robot_LED_Blink()
 
 void Robot_Transmit_UART()
 {
+	//--- VGT ARM
+	arm_setpoints[0] = udp_rx.motor_1;
+	arm_setpoints[1] = udp_rx.motor_2;
+	arm_setpoints[2] = udp_rx.motor_3;
 	memcpy(UART1_TX_BUFFER + 3, &arm_setpoints[0], 2);
 	memcpy(UART1_TX_BUFFER + 5, &arm_setpoints[1], 2);
 	memcpy(UART1_TX_BUFFER + 7, &arm_setpoints[2], 2);
@@ -371,9 +377,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart == &huart1) //--- VGT ARM
 	{
-		memcpy(&arm_feedbacks[0], UART1_RX_BUFFER + 3, 2);
-		memcpy(&arm_feedbacks[1], UART1_RX_BUFFER + 5, 2);
-		memcpy(&arm_feedbacks[2], UART1_RX_BUFFER + 7, 2);
+		/* Save UDP */
+		memcpy(&udp_tx.enc_1, UART1_RX_BUFFER + 3, 2);
+		memcpy(&udp_tx.enc_2, UART1_RX_BUFFER + 5, 2);
+		memcpy(&udp_tx.enc_3, UART1_RX_BUFFER + 7, 2);
+		memcpy(&udp_tx.lim2, UART1_RX_BUFFER + 9, 1);
+		memcpy(&udp_tx.lim3, UART1_RX_BUFFER + 10, 1);
 
 		HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
 	}
@@ -399,22 +408,26 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 	if(huart == &huart4)
 	{
-		memcpy(&encX.count, UART4_RX_BUFFER + 3, 2);
-		memcpy(&encY.count, UART4_RX_BUFFER + 5, 2);
+		memcpy(UltraSonic, UART4_RX_BUFFER + 3, sizeof(UltraSonic));
 
 		/* Save UDP */
-		udp_tx.enc_x = encX.count;
-		udp_tx.enc_y = encY.count;
+		memcpy(udp_tx.ultrasonic, UltraSonic, sizeof(udp_tx.ultrasonic));
+//		memcpy(&udp_tx.ultrasonic[0], &UltraSonic[0], 2);
+//		memcpy(&udp_tx.ultrasonic[1], &UltraSonic[1], 2);
+//		memcpy(&udp_tx.ultrasonic[2], &UltraSonic[2], 2);
+//		memcpy(&udp_tx.ultrasonic[3], &UltraSonic[3], 2);
 
 		HAL_UART_Receive_DMA(&huart4, (uint8_t*)UART4_RX_BUFFER, sizeof(UART4_RX_BUFFER));
 	}
 
 	if(huart == &huart5)
 	{
-		memcpy(UltraSonic, UART5_RX_BUFFER + 3, sizeof(UltraSonic));
+		memcpy(&encX.count, UART5_RX_BUFFER + 3, 2);
+		memcpy(&encY.count, UART5_RX_BUFFER + 5, 2);
 
 		/* Save UDP */
-		memcpy(udp_tx.ultrasonic, UltraSonic, sizeof(udp_tx.ultrasonic));
+		udp_tx.enc_x = encX.count;
+		udp_tx.enc_y = encY.count;
 
 		HAL_UART_Receive_DMA(&huart5, (uint8_t*)UART5_RX_BUFFER, sizeof(UART5_RX_BUFFER));
 	}

@@ -60,8 +60,8 @@ all: main-build
 main-build: arm_2025.elf secondary-outputs
 
 # Tool invocations
-arm_2025.elf arm_2025.map: $(OBJS) $(USER_OBJS) /home/roobics/titanium-bot/stm32_code/arm_2025/STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "arm_2025.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/roobics/titanium-bot/stm32_code/arm_2025/STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="arm_2025.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+arm_2025.elf arm_2025.map: $(OBJS) $(USER_OBJS) C:\Users\ALFA\Desktop\home\coding\GitHub\titanium-bot\stm32_code\arm_2025\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "arm_2025.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\ALFA\Desktop\home\coding\GitHub\titanium-bot\stm32_code\arm_2025\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="arm_2025.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

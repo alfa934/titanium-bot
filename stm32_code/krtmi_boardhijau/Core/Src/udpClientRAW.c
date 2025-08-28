@@ -79,7 +79,25 @@ void udpClient_send(void)
 
   int len = sizeof(udp_tx_buffer);
 
-  memcpy(udp_tx_buffer +  3, &udp_tx, sizeof(udpTx_t));
+//  memcpy(udp_tx_buffer +  3, &udp_tx, sizeof(udpTx_t));
+  memcpy(udp_tx_buffer + 3, &udp_tx.enc_a, 2);
+  memcpy(udp_tx_buffer + 5, &udp_tx.enc_b, 2);
+  memcpy(udp_tx_buffer + 7, &udp_tx.enc_c, 2);
+  memcpy(udp_tx_buffer + 9, &udp_tx.enc_x, 2);
+  memcpy(udp_tx_buffer + 11, &udp_tx.enc_y, 2);
+  memcpy(udp_tx_buffer + 13, &udp_tx.enc_1, 2);
+  memcpy(udp_tx_buffer + 15, &udp_tx.enc_2, 2);
+  memcpy(udp_tx_buffer + 17, &udp_tx.enc_3, 2);
+
+  memcpy(udp_tx_buffer + 19, &udp_tx.yaw_degree, 4);
+
+  memcpy(udp_tx_buffer + 23, &udp_tx.ultrasonic[0], 2);
+  memcpy(udp_tx_buffer + 25, &udp_tx.ultrasonic[1], 2);
+  memcpy(udp_tx_buffer + 27, &udp_tx.ultrasonic[2], 2);
+  memcpy(udp_tx_buffer + 29, &udp_tx.ultrasonic[3], 2);
+
+  memcpy(udp_tx_buffer + 31, &udp_tx.lim2, 1);
+  memcpy(udp_tx_buffer + 32, &udp_tx.lim3, 1);
 
   txBuf = pbuf_alloc(PBUF_TRANSPORT, len, PBUF_POOL);
 
@@ -99,7 +117,15 @@ void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const
 	/* Copy the data from the pbuf */
 	memcpy(udp_rx_buffer, p->payload, p->len);
 
-	memcpy(&udp_rx, udp_rx_buffer +  3, sizeof(udpRx_t));
+//	memcpy(&udp_rx, udp_rx_buffer +  3, sizeof(udpRx_t));
+	memcpy(&udp_rx.motor_a, udp_rx_buffer + 3, 2);
+	memcpy(&udp_rx.motor_b, udp_rx_buffer + 5, 2);
+	memcpy(&udp_rx.motor_c, udp_rx_buffer + 7, 2);
+	memcpy(&udp_rx.motor_1, udp_rx_buffer + 9, 2);
+	memcpy(&udp_rx.motor_2, udp_rx_buffer + 11, 2);
+	memcpy(&udp_rx.motor_3, udp_rx_buffer + 13, 2);
+
+
 
 	pbuf_free(p);
 }
