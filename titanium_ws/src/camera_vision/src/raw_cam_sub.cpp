@@ -18,7 +18,7 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
         {
             cv::imshow("Camera Stream", final_frame);
             int key = cv::waitKey(1);
-            if (key == 27) // ESC key
+            if (key == 27) //--- ESC key
             { 
                 ros::shutdown();
             }

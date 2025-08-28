@@ -47,21 +47,20 @@ void udpReadCallback(const ros::TimerEvent &event)
 		memcpy(&encoder.enc_x, rx_buffer + 9, 2);
 		memcpy(&encoder.enc_y, rx_buffer + 11, 2);
         memcpy(&encoder.enc_1, rx_buffer + 13, 2);
-        memcpy(&encoder.enc_2, rx_buffer + 17, 2);
-        memcpy(&encoder.enc_3, rx_buffer + 19, 2);
+        memcpy(&encoder.enc_2, rx_buffer + 15, 2);
+        memcpy(&encoder.enc_3, rx_buffer + 17, 2);
 		
-        memcpy(&yaw.degree, rx_buffer + 21, 4);
+        memcpy(&yaw.degree, rx_buffer + 19, 4);
         yaw.radian = yaw.degree * (180.0 / M_PI);
 		
-        memcpy(&ultrasonic.ultra_a, rx_buffer + 25, 2);
-		memcpy(&ultrasonic.ultra_b, rx_buffer + 27, 2);
-		memcpy(&ultrasonic.ultra_c, rx_buffer + 29, 2);
-		memcpy(&ultrasonic.ultra_d, rx_buffer + 31, 2);
+        memcpy(&ultrasonic.ultra_a, rx_buffer + 23, 2);
+		memcpy(&ultrasonic.ultra_b, rx_buffer + 25, 2);
+		memcpy(&ultrasonic.ultra_c, rx_buffer + 27, 2);
+		memcpy(&ultrasonic.ultra_d, rx_buffer + 29, 2);
 
-        memcpy(&limit_switch.lim_2, rx_buffer + 33, 1);
-        memcpy(&limit_switch.lim_3, rx_buffer + 34, 1);
+        memcpy(&limit_switch.lim_2, rx_buffer + 31, 1);
+        memcpy(&limit_switch.lim_3, rx_buffer + 32, 1);
 
-		
 
 		pub_encoder.publish(encoder);
 		pub_limit.publish(limit_switch);
@@ -136,6 +135,7 @@ int main(int argc, char **argv)
 	pub_limit = nh.advertise<robot_msgs::limit_switch>("/sensor/limit_switch", 10);
 	pub_ultra = nh.advertise<robot_msgs::ultrasonic>("/sensor/ultrasonic", 10);
 	pub_yaw = nh.advertise<robot_msgs::yaw>("/sensor/yaw", 10);
+    
     sub_motor = nh.subscribe("/actuator/motor", 10, motorCallback);
 
     timer_udpRead = nh.createTimer(ros::Duration(0.001), udpReadCallback);

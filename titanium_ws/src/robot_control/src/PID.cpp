@@ -33,7 +33,6 @@ float PID::update(float setpoint, float feedback, float max_output, float dt)
 	m_derivative   = m_kd * (m_error - m_prev_error) * dt;
 	m_prev_error   = m_error;
 
-
 	if(m_integral >= m_max_output)        { m_integral =   m_max_output;  }
 	else if(m_integral < -(m_max_output)) { m_integral = -(m_max_output); }
 
