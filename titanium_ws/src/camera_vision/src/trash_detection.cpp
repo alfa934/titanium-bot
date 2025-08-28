@@ -13,6 +13,7 @@
  * - Make display window optional
  */
 
+bool show_display = false;
 
 const int low_H = 40, low_S = 195, low_V = 150;
 const int high_H = 180, high_S = 255, high_V = 255;
@@ -230,13 +231,15 @@ void imageCallback(const sensor_msgs::ImageConstPtr &msg)
 
         pub_trash.publish(camera);
 
-        cv::imshow("Detection Result", result_image);
-        int key = cv::waitKey(1);
-        if (key == 27) //--- ESC key
-        { 
-            ros::shutdown();
+        if(show_display)
+        {
+            cv::imshow("Detection Result", result_image);
+            int key = cv::waitKey(1);
+            if (key == 27) //--- ESC key
+            { 
+                ros::shutdown();
+            }
         }
-
     }
     catch (cv_bridge::Exception& e)
     {
@@ -249,28 +252,38 @@ int main(int argc, char** argv)
     ros::init(argc, argv, "trash_detector_node");
     ros::NodeHandle nh;
     ros::NodeHandle private_nh("~");
+    
+    private_nh.param("display", show_display, false);
 
     camera.cameraCenterX = CAMERA_CENTER_X;
     camera.cameraCenterY = CAMERA_CENTER_Y;
     pub_trash = nh.advertise<robot_msgs::camera>("/sensor/camera", 10);
     
-    std::string calibration_file;
-    private_nh.param<std::string>("calibration_file", calibration_file, "/home/roobics/titanium-bot/titanium_ws/src/camera_vision/src/calibration.yaml");
-    
-    if (!loadCalibrationData(calibration_file))
-    {
-        ROS_WARN("Using uncalibrated camera mode. Distortion correction will not be applied.");
-    }
-    
-    cv::namedWindow("Detection Result");
-    
-    image_transport::ImageTransport it(nh);
-    image_transport::Subscriber sub = it.subscribe("/camera/raw_image", 1, imageCallback);
-
     ROS_INFO("Trash Detector node started");
     ROS_INFO("Camera center coordinates: (%d, %d)", CAMERA_CENTER_X, CAMERA_CENTER_Y);
     ROS_INFO("Detecting objects in HSV range: H[%d-%d], S[%d-%d], V[%d-%d]", 
              low_H, high_H, low_S, high_S, low_V, high_V);
+
+    if(show_display)
+    {
+        ROS_INFO("Display enabled - Press ESC in window to exit");
+        std::string calibration_file;
+        private_nh.param<std::string>("calibration_file", calibration_file, "/home/roobics/titanium-bot/titanium_ws/src/camera_vision/src/calibration.yaml");
+        
+        if (!loadCalibrationData(calibration_file))
+        {
+            ROS_WARN("Using uncalibrated camera mode. Distortion correction will not be applied.");
+        }
+        
+        cv::namedWindow("Detection Result");
+    }
+    else
+    {
+        ROS_INFO("Display disabled - Running in headless mode");
+    }
+    
+    image_transport::ImageTransport it(nh);
+    image_transport::Subscriber sub = it.subscribe("/camera/raw_image", 1, imageCallback);
 
     ros::spin();
     
