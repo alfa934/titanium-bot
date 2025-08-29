@@ -188,6 +188,7 @@ target_link_libraries(trash_detection
   ${catkin_LIBRARIES}
   ${OpenCV_LIBRARIES}
 )
+add_dependencies(trash_detection ${catkin_EXPORTED_TARGETS})
 
 #############
 ## Install ##

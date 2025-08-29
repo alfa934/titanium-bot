@@ -1,7 +1,11 @@
 #include "ros/ros.h"
+#include "robot_msgs/button.h"
+#include "robot_msgs/controller.h"
 #include "robot_msgs/encoder.h"
+#include "robot_msgs/indicator.h"
 #include "robot_msgs/limit_switch.h"
 #include "robot_msgs/motor.h"
+#include "robot_msgs/robot_system.h"
 #include "robot_msgs/ultrasonic.h"
 #include "robot_msgs/yaw.h"
 
@@ -15,23 +19,29 @@
 #define STM32_PORT	1555
 #define PC_ADDR		"192.168.13.100"
 #define PC_PORT    	1556
-#define BUFF_SIZE 	64
-
-robot_msgs::encoder encoder;
-robot_msgs::limit_switch limit_switch;
-robot_msgs::motor motor;
-robot_msgs::ultrasonic ultrasonic;
-robot_msgs::yaw yaw;
+#define BUFF_SIZE 	81
 
 int sockfd;
 char rx_buffer[BUFF_SIZE];
 char tx_buffer[BUFF_SIZE] = "ABC";
 struct sockaddr_in servaddr, cliaddr;
 
-ros::Timer timer_udpRead, timer_udpWrite;
-ros::Publisher pub_encoder, pub_limit, pub_ultra, pub_yaw;
-ros::Subscriber sub_motor;
+robot_msgs::button button;
+robot_msgs::controller controller;
+robot_msgs::encoder encoder;
+robot_msgs::indicator indicator;
+robot_msgs::limit_switch limit_switch;
+robot_msgs::motor motor;
+robot_msgs::robot_system robot_system;
+robot_msgs::ultrasonic ultrasonic;
+robot_msgs::yaw yaw;
 
+ros::Timer timer_udpRead, timer_udpWrite;
+
+ros::Publisher  pub_encoder, pub_limit, pub_ultra, pub_yaw,
+                pub_button, pub_controller;
+
+ros::Subscriber sub_motor, sub_robot_system, sub_indicator;
 
 void udpReadCallback(const ros::TimerEvent &event)
 {
@@ -61,7 +71,47 @@ void udpReadCallback(const ros::TimerEvent &event)
         memcpy(&limit_switch.lim_2, rx_buffer + 31, 1);
         memcpy(&limit_switch.lim_3, rx_buffer + 32, 1);
 
+        memcpy(&button.startButton, rx_buffer + 33, 1);
+        memcpy(&button.resetButton, rx_buffer + 34, 1);
+        memcpy(&button.button1, rx_buffer + 35, 1);
+        memcpy(&button.button2, rx_buffer + 36, 1);
+        memcpy(&button.button3, rx_buffer + 37, 1);
+        memcpy(&button.button4, rx_buffer + 38, 1);
+        memcpy(&button.button5, rx_buffer + 39, 1);
 
+        memcpy(&controller.rX, rx_buffer + 40, 1);
+        memcpy(&controller.rY, rx_buffer + 41, 1);
+        memcpy(&controller.lX, rx_buffer + 42, 1);
+        memcpy(&controller.lY, rx_buffer + 43, 1);
+        memcpy(&controller.r2, rx_buffer + 44, 1);
+        memcpy(&controller.l2, rx_buffer + 45, 1);
+        memcpy(&controller.r1, rx_buffer + 46, 1);
+        memcpy(&controller.l1, rx_buffer + 47, 1);
+        memcpy(&controller.r3, rx_buffer + 48, 1);
+        memcpy(&controller.l3, rx_buffer + 49, 1);
+        memcpy(&controller.crs, rx_buffer + 50, 1);
+        memcpy(&controller.sqr, rx_buffer + 51, 1);
+        memcpy(&controller.tri, rx_buffer + 52, 1);
+        memcpy(&controller.cir, rx_buffer + 53, 1);
+        memcpy(&controller.up, rx_buffer + 54, 1);
+        memcpy(&controller.down, rx_buffer + 55, 1);
+        memcpy(&controller.right, rx_buffer + 56, 1);
+        memcpy(&controller.left, rx_buffer + 57, 1);
+        memcpy(&controller.share, rx_buffer + 58, 1);
+        memcpy(&controller.option, rx_buffer + 59, 1);
+        memcpy(&controller.ps, rx_buffer + 60, 1);
+        memcpy(&controller.touchpad, rx_buffer + 61, 1);
+        memcpy(&controller.battery, rx_buffer + 62, 1);
+        memcpy(&controller.gX, rx_buffer + 63, 2);
+        memcpy(&controller.gY, rx_buffer + 65, 2);
+        memcpy(&controller.gZ, rx_buffer + 67, 2);
+        memcpy(&controller.aX, rx_buffer + 69, 2);
+        memcpy(&controller.aY, rx_buffer + 71, 2);
+        memcpy(&controller.aZ, rx_buffer + 73, 2);
+
+
+        pub_button.publish(button);
+        pub_controller.publish(controller);
 		pub_encoder.publish(encoder);
 		pub_limit.publish(limit_switch);
 		pub_ultra.publish(ultrasonic);
@@ -131,6 +181,8 @@ int main(int argc, char **argv)
 
     initSocket();
 
+    pub_button = nh.advertise<robot_msgs::button>("/input/button", 10);
+    pub_controller = nh.advertise<robot_msgs::controller>("/input/controller", 10);
     pub_encoder = nh.advertise<robot_msgs::encoder>("/sensor/encoder", 10);
 	pub_limit = nh.advertise<robot_msgs::limit_switch>("/sensor/limit_switch", 10);
 	pub_ultra = nh.advertise<robot_msgs::ultrasonic>("/sensor/ultrasonic", 10);

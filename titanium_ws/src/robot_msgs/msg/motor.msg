@@ -4,3 +4,4 @@ int16 motor_c
 int16 motor_1
 int16 motor_2
 int16 motor_3
+uint8 relay_state
