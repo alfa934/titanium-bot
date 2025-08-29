@@ -37,15 +37,15 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   CONTENTS, READONLY, DEBUGGING, OCTETS
  16 .debug_macro  000179ab  00000000  00000000  00014081  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   0000ca55  00000000  00000000  0002ba2c  2**0
+ 17 .debug_line   0000d170  00000000  00000000  0002ba2c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    0008aba5  00000000  00000000  00038481  2**0
+ 18 .debug_str    0008abc0  00000000  00000000  00038b9c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  000c3026  2**0
+ 19 .comment      00000043  00000000  00000000  000c375c  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  0000336c  00000000  00000000  000c306c  2**2
+ 20 .debug_frame  0000336c  00000000  00000000  000c37a0  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 0000005d  00000000  00000000  000c63d8  2**0
+ 21 .debug_line_str 00000078  00000000  00000000  000c6b0c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -513,7 +513,7 @@ Disassembly of section .text:
  8000634:	d101      	bne.n	800063a <__aeabi_f2uiz+0x32>
  8000636:	0242      	lsls	r2, r0, #9
  8000638:	d102      	bne.n	8000640 <__aeabi_f2uiz+0x38>
- 800063a:	f04f 30ff 	mov.w	r0, #4294967295	@ 0xffffffff
+ 800063a:	f04f 30ff 	mov.w	r0, #4294967295
  800063e:	4770      	bx	lr
  8000640:	f04f 0000 	mov.w	r0, #0
  8000644:	4770      	bx	lr
@@ -2527,7 +2527,7 @@ __weak HAL_StatusTypeDef HAL_InitTick(uint32_t TickPriority)
     HAL_NVIC_SetPriority(SysTick_IRQn, TickPriority, 0U);
  80010b4:	2200      	movs	r2, #0
  80010b6:	6879      	ldr	r1, [r7, #4]
- 80010b8:	f04f 30ff 	mov.w	r0, #4294967295	@ 0xffffffff
+ 80010b8:	f04f 30ff 	mov.w	r0, #4294967295
  80010bc:	f000 f927 	bl	800130e <HAL_NVIC_SetPriority>
     uwTickPrio = TickPriority;
  80010c0:	4a06      	ldr	r2, [pc, #24]	@ (80010dc <HAL_InitTick+0x5c>)
@@ -2618,7 +2618,7 @@ __weak void HAL_Delay(uint32_t Delay)
   /* Add a freq to guarantee minimum wait */
   if (wait < HAL_MAX_DELAY)
  800112a:	68fb      	ldr	r3, [r7, #12]
- 800112c:	f1b3 3fff 	cmp.w	r3, #4294967295	@ 0xffffffff
+ 800112c:	f1b3 3fff 	cmp.w	r3, #4294967295
  8001130:	d005      	beq.n	800113e <HAL_Delay+0x26>
   {
     wait += (uint32_t)(uwTickFreq);
@@ -2853,7 +2853,7 @@ __STATIC_INLINE uint32_t NVIC_EncodePriority (uint32_t PriorityGroup, uint32_t P
 
   return (
            ((PreemptPriority & (uint32_t)((1UL << (PreemptPriorityBits)) - 1UL)) << SubPriorityBits) |
- 8001284:	f04f 32ff 	mov.w	r2, #4294967295	@ 0xffffffff
+ 8001284:	f04f 32ff 	mov.w	r2, #4294967295
  8001288:	69bb      	ldr	r3, [r7, #24]
  800128a:	fa02 f303 	lsl.w	r3, r2, r3
  800128e:	43da      	mvns	r2, r3
@@ -2862,7 +2862,7 @@ __STATIC_INLINE uint32_t NVIC_EncodePriority (uint32_t PriorityGroup, uint32_t P
  8001294:	697b      	ldr	r3, [r7, #20]
  8001296:	409a      	lsls	r2, r3
            ((SubPriority     & (uint32_t)((1UL << (SubPriorityBits    )) - 1UL)))
- 8001298:	f04f 31ff 	mov.w	r1, #4294967295	@ 0xffffffff
+ 8001298:	f04f 31ff 	mov.w	r1, #4294967295
  800129c:	697b      	ldr	r3, [r7, #20]
  800129e:	fa01 f303 	lsl.w	r3, r1, r3
  80012a2:	43d9      	mvns	r1, r3
@@ -2907,7 +2907,7 @@ __STATIC_INLINE uint32_t SysTick_Config(uint32_t ticks)
  80012d0:	6053      	str	r3, [r2, #4]
   NVIC_SetPriority (SysTick_IRQn, (1UL << __NVIC_PRIO_BITS) - 1UL); /* set Priority for Systick Interrupt */
  80012d2:	210f      	movs	r1, #15
- 80012d4:	f04f 30ff 	mov.w	r0, #4294967295	@ 0xffffffff
+ 80012d4:	f04f 30ff 	mov.w	r0, #4294967295
  80012d8:	f7ff ff90 	bl	80011fc <__NVIC_SetPriority>
   SysTick->VAL   = 0UL;                                             /* Load the SysTick Counter Value */
  80012dc:	4b05      	ldr	r3, [pc, #20]	@ (80012f4 <SysTick_Config+0x40>)

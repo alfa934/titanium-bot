@@ -106,9 +106,10 @@ static void MX_TIM6_Init(void);
 #define MAX_HORIZONTAL_PULSE		2250
 #define MAX_ROTATION_PULSE			1840
 
-#define MAX_VERTICAL_PID_SPEED		900
-#define MAX_HORIZONTAL_PID_SPEED	900
-#define MAX_ROTATION_PID_SPEED		400
+#define MAX_VERTICAL_PID_SPEED		999
+#define MAX_HORIZONTAL_PID_SPEED	999
+#define MAX_ROTATION_PID_SPEED		999
+
 
 int16_t TIM6_CNT_MS = 0;
 int16_t enc1_cnt = 0;
@@ -118,26 +119,29 @@ int16_t enc4_cnt = 0;
 int16_t enc5_cnt = 0;
 int16_t enc6_cnt = 0;
 
+uint8_t arm_state = 0;
+uint8_t arm_pos = 0;
+uint16_t arm_cnt_ms = 0;
+
+PID_t pid_rotation = {0};
+PID_t pid_horizontal = {0};
+PID_t pid_vertical = {0};
+
+
+char UART1_RX_BUFFER[53];
+uint8_t robot_start = 0;
+uint8_t robot_reset = 0;
+uint8_t relay_state = 1; //--- 1 is OFF, 0 is ON
+int16_t setpoint_rotation = 0;
+int16_t setpoint_horizontal = 0;
+int16_t setpoint_vertical = 0;
+
+
+char UART1_TX_BUFFER[53] = "ABC";
 //--- PULL UP
 uint8_t LIM_SW2_STAT = 1;
 uint8_t LIM_SW3_STAT = 1;
-uint8_t START_BUTTON_STAT = 1;
-
-uint8_t arm_state = 0;
-uint8_t arm_pos = 0;
-uint16_t arm_cnt_10ms = 0;
-
-PID_t arm_vertical = {0};
-PID_t arm_horizontal = {0};
-PID_t arm_rotation = {0};
-
-int16_t arm_setpoints[3] = {0};
-int16_t arm_feedbacks[3] = {0};
-uint8_t reset_rotation = 0;
-
-char UART1_RX_BUFFER[53];
-
-char UART1_TX_BUFFER[53] = "ABC";
+uint8_t button1_state = 1, button2_state= 1;
 
 
 void setMotor(uint8_t motor, int16_t speed)
@@ -175,9 +179,6 @@ void setMotor(uint8_t motor, int16_t speed)
 
 uint8_t arm_init()
 {
-	LIM_SW2_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_1);
-	LIM_SW3_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3);
-
 	if(LIM_SW2_STAT == 1)
 	{
 		setMotor(2, MAX_HORIZONTAL_HOME_SPEED); //--- go back
@@ -208,14 +209,15 @@ uint8_t arm_init()
 
 void transmit_uart()
 {
-	memcpy(UART1_TX_BUFFER + 3, &arm_feedbacks[0], 2);
-	memcpy(UART1_TX_BUFFER + 5, &arm_feedbacks[1], 2);
-	memcpy(UART1_TX_BUFFER + 7, &arm_feedbacks[2], 2);
-	memcpy(UART1_TX_BUFFER + 9, &LIM_SW2_STAT, 1);
-	memcpy(UART1_TX_BUFFER + 10, &LIM_SW3_STAT, 1);
+	memcpy(UART1_TX_BUFFER + 3, &button1_state, 1);
+	memcpy(UART1_TX_BUFFER + 4, &button2_state, 1);
+	memcpy(UART1_TX_BUFFER + 5, &LIM_SW2_STAT, 1);
+	memcpy(UART1_TX_BUFFER + 6, &LIM_SW3_STAT, 1);
+	memcpy(UART1_TX_BUFFER + 7, &enc1_cnt, 2);
+	memcpy(UART1_TX_BUFFER + 9, &enc2_cnt, 2);
+	memcpy(UART1_TX_BUFFER + 11, &enc3_cnt, 2);
+
 	HAL_UART_Transmit_DMA(&huart1, (uint8_t*)UART1_TX_BUFFER, sizeof(UART1_TX_BUFFER));
-
-
 }
 
 
@@ -234,6 +236,79 @@ void led_blink()
 	timer++;
 }
 
+void read_limit_switch()
+{
+	LIM_SW2_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_1);
+	LIM_SW3_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3);
+}
+
+void read_button()
+{
+	button1_state = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_4);
+	button2_state = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_7);
+}
+
+void write_relay(uint8_t state)
+{
+	if(state == 0) //--- ON STATE
+	{
+		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, 0);
+	}
+	else //--- OFF STATE
+	{
+		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, 1);
+	}
+}
+
+void arm_state_machine()
+{
+	switch(arm_state)
+	{
+		case 0: //--- Arm homing position
+			if(arm_init())
+			{
+				arm_state++;
+			}
+			break;
+
+		case 1: //--- Wait for motors to settle, then reset encoders
+			if(arm_cnt_ms >= 1250)
+			{
+			  arm_cnt_ms = 0;
+			  TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
+			  arm_state++;
+			}
+			arm_cnt_ms++;
+
+			break;
+
+		case 2: //--- Main PID speed loop (every 10 ms)
+			if(arm_cnt_ms >= 9)
+			{
+				enc1_cnt = -TIM1 -> CNT;
+				enc2_cnt = -TIM2 -> CNT;
+				enc3_cnt = -TIM3 -> CNT;
+
+				TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
+
+				PID_Update(&pid_rotation, setpoint_rotation, enc1_cnt, MAX_ROTATION_PID_SPEED);
+				PID_Update(&pid_horizontal, setpoint_horizontal, enc2_cnt, MAX_HORIZONTAL_PID_SPEED);
+				PID_Update(&pid_vertical, setpoint_vertical, enc3_cnt, MAX_VERTICAL_PID_SPEED);
+
+				setMotor(1, (int16_t)pid_rotation.output);
+				setMotor(2, (int16_t)pid_horizontal.output);
+				setMotor(3, (int16_t)pid_vertical.output);
+
+				arm_cnt_ms = 0;
+			}
+			arm_cnt_ms++;
+
+			break;
+
+		default:
+			break;
+	}
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
@@ -243,92 +318,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		transmit_uart();
 
+		read_limit_switch();
 
-		if(TIM6_CNT_MS >= 9)
-		{
+		read_button();
 
-			switch(arm_state)
-			{
-				case 0:
-					if(arm_init())
-					{
-						arm_state++;
-					}
-					break;
+//		write_relay(relay_state);
 
-				case 1:
-					arm_cnt_10ms++;
-					if(arm_cnt_10ms >= 200)
-					{
-					  arm_cnt_10ms = 0;
-					  TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
-					  arm_state++;
-					}
-//					START_BUTTON_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_0);
-//
-//					if(START_BUTTON_STAT == 0)
-//					{
-//						//--- Reset all encoders after homing
-//						TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
-//						arm_state++;
-//					}
-					break;
-
-				case 2:
-					LIM_SW2_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_1);
-					LIM_SW3_STAT = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3);
-
-					if(reset_rotation)
-					{
-						arm_feedbacks[0] = 0;
-					}
-					if(LIM_SW2_STAT == 0)
-					{
-						arm_feedbacks[1] = 0;
-					}
-					if(LIM_SW3_STAT == 0)
-					{
-						arm_feedbacks[2] = 0;
-					}
-
-
-					enc1_cnt = -TIM1 -> CNT;
-					enc2_cnt = -TIM2 -> CNT;
-					enc3_cnt = -TIM3 -> CNT;
-
-					arm_feedbacks[0] = enc1_cnt;
-					arm_feedbacks[1] = enc2_cnt;
-					arm_feedbacks[2] = enc3_cnt;
-
-					TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
-
-					setMotor(1, arm_setpoints[0]);
-					setMotor(2, arm_setpoints[1]);
-					setMotor(3, arm_setpoints[2]);
-
-//					arm_feedbacks[0] += enc1_cnt;
-//					arm_feedbacks[1] += enc2_cnt;
-//					arm_feedbacks[2] += enc3_cnt;
-//
-//					PID_Update(&arm_rotation, (float)arm_setpoints[0], (float)arm_feedbacks[0], (float)MAX_ROTATION_PID_SPEED);
-//					PID_Update(&arm_horizontal, (float)arm_setpoints[1], (float)arm_feedbacks[1], (float)MAX_HORIZONTAL_PID_SPEED);
-//					PID_Update(&arm_vertical, (float)arm_setpoints[2], (float)arm_feedbacks[2], (float)MAX_VERTICAL_PID_SPEED);
-//
-//					setMotor(1, (int16_t)arm_rotation.output);
-//					setMotor(2, (int16_t)arm_horizontal.output);
-//					setMotor(3, (int16_t)arm_vertical.output);
-
-					break;
-
-				default:
-					break;
-			}
-
-
-
-			TIM6_CNT_MS = 0;
-		}
-		TIM6_CNT_MS++;
+		arm_state_machine();
 	}
 }
 
@@ -337,11 +333,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart == &huart1) //--- VGT BASE
 	{
-		memcpy(&arm_setpoints[0], UART1_RX_BUFFER + 3, 2);
-		memcpy(&arm_setpoints[1], UART1_RX_BUFFER + 5, 2);
-		memcpy(&arm_setpoints[2], UART1_RX_BUFFER + 7, 2);
-		memcpy(&reset_rotation, UART1_RX_BUFFER + 9, 1);
-
+		if(UART1_RX_BUFFER[0] == 'A' && UART1_RX_BUFFER[1] == 'B' && UART1_RX_BUFFER[2] == 'C')
+		{
+			memcpy(&robot_start, UART1_RX_BUFFER + 3, 1);
+			memcpy(&robot_reset, UART1_RX_BUFFER + 4, 1);
+			memcpy(&relay_state, UART1_RX_BUFFER + 5, 1);
+			memcpy(&setpoint_rotation, UART1_RX_BUFFER + 6, 2);
+			memcpy(&setpoint_horizontal, UART1_RX_BUFFER + 8, 2);
+			memcpy(&setpoint_vertical, UART1_RX_BUFFER + 10, 2);
+		}
 		HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
 	}
 }
@@ -432,9 +432,14 @@ int main(void)
   HAL_TIM_PWM_Start(&htim13, TIM_CHANNEL_1);
   HAL_TIM_PWM_Start(&htim14, TIM_CHANNEL_1);
 
-  PID_Init(&arm_vertical, 1, 0, 0);
-  PID_Init(&arm_horizontal, 2.1, 0, 0.1);
-  PID_Init(&arm_rotation, 2, 0, 50);
+  float kp = 40, ki = 3, kd = 0;
+
+  PID_Init(&pid_rotation, kp, ki, kd);
+  PID_Init(&pid_horizontal, kp, ki, kd);
+  PID_Init(&pid_vertical, kp, ki, kd);
+
+  //--- TURN OFF RELAY
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, 1);
 
   HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
 
@@ -445,10 +450,7 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, 0);
-//	  HAL_Delay(5000);
-//	  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, 0);
-//	  HAL_Delay(2000);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -707,7 +709,6 @@ static void MX_TIM5_Init(void)
 {
 
   /* USER CODE BEGIN TIM5_Init 0 */
-	arm_rotation.setpoint = 920;
   /* USER CODE END TIM5_Init 0 */
 
   TIM_Encoder_InitTypeDef sConfig = {0};
@@ -1338,8 +1339,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PD0 PD1 PD3 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_3;
+  /*Configure GPIO pins : PD0 PD1 PD3 PD4
+                           PD7 */
+  GPIO_InitStruct.Pin = GPIO_PIN_0|GPIO_PIN_1|GPIO_PIN_3|GPIO_PIN_4
+                          |GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_PULLUP;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
