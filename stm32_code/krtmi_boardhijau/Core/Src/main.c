@@ -64,12 +64,7 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-float Y_ENC_PULSE_CM = 0.0488758553274682;
-float X_ENC_PULSE_CM = 0.0539374325782093;
-
 uint8_t udp_cnt = 0;
-
-Controller_t input;
 
 Motor_t motorA;
 Motor_t motorB;
@@ -84,15 +79,6 @@ Encoder_t encY;
 PID_t PID_A;
 PID_t PID_B;
 PID_t PID_C;
-PID_t PID_VY;
-PID_t PID_VW;
-
-int16_t vx;
-int16_t vy;
-int16_t vw;
-int16_t vx_controller;
-int16_t vy_controller;
-float   vw_controller;
 
 float kp;
 float ki;
@@ -107,102 +93,90 @@ char UART6_RX_BUFFER[7];  //--- NANO YAW
 
 char UART1_TX_BUFFER[53] = "ABC";
 
-int16_t arm_setpoints[3] = {0};
-uint8_t reset_rotation = 0;
+//float flip_yaw(float original_yaw)
+//{
+//    return 360.0f - fmodf(original_yaw, 360.0f);
+//}
 
-float yaw_degree_raw;
-float yaw_degree;
-float yaw_radian;
-float yaw_adjust;
-float yaw_flip;
-uint16_t UltraSonic[4];
+//void yaw_process()
+//{
+//	static uint8_t offset_once = 0;
+//	yaw_degree = flip_yaw(yaw_degree_raw);
+//
+//	if(yaw_degree > 180.001)
+//	{
+//		yaw_degree -= 360.001;
+//	}
+//	else if(yaw_degree < -180.001)
+//	{
+//		yaw_degree += 360.001;
+//	}
+//
+//	if(input.crs)
+//	{
+//		yaw_adjust = yaw_degree;
+//		vw_controller = 0;
+//	}
+//
+//	if(!offset_once)
+//	{
+//		yaw_adjust = yaw_degree;
+//		offset_once++;
+//	}
+//
+//	yaw_degree = yaw_degree - yaw_adjust;
+//
+//	yaw_radian = yaw_degree * M_PI/180.0;
+//}
 
-
-
-float flip_yaw(float original_yaw)
-{
-    return 360.0f - fmodf(original_yaw, 360.0f);
-}
-
-void yaw_process()
-{
-	static uint8_t offset_once = 0;
-	yaw_degree = flip_yaw(yaw_degree_raw);
-
-	if(yaw_degree > 180.001)
-	{
-		yaw_degree -= 360.001;
-	}
-	else if(yaw_degree < -180.001)
-	{
-		yaw_degree += 360.001;
-	}
-
-	if(input.crs)
-	{
-		yaw_adjust = yaw_degree;
-		vw_controller = 0;
-	}
-
-	if(!offset_once)
-	{
-		yaw_adjust = yaw_degree;
-		offset_once++;
-	}
-
-	yaw_degree = yaw_degree - yaw_adjust;
-
-	yaw_radian = yaw_degree * M_PI/180.0;
-}
-
-void controller_process()
-{
-	static float arm_set_0 = 0;
-	static float arm_set_1 = 0;
-
-	if(input.r1 && arm_setpoints[0] >= -920)
-	{
-		arm_set_0 -= 0.5;
-	}
-	else if(input.l1 && arm_setpoints[0] <= 920)
-	{
-		arm_set_0 += 0.5;
-	}
-
-
-	if(input.up && arm_setpoints[1] < 2250)
-	{
-		arm_set_1 += 1;
-
-	}
-	else if(input.down && arm_setpoints[1] >= 0)
-	{
-		arm_set_1 -= 1;
-	}
-
-	if(input.tri)
-	{
-		reset_rotation = 1;
-		arm_set_0 = 0;
-	}
-	else
-	{
-		reset_rotation = 0;
-	}
+//void controller_process()
+//{
+//	static float arm_set_0 = 0;
+//	static float arm_set_1 = 0;
+//
+//	if(input.r1 && arm_setpoints[0] >= -920)
+//	{
+//		arm_set_0 -= 0.5;
+//	}
+//	else if(input.l1 && arm_setpoints[0] <= 920)
+//	{
+//		arm_set_0 += 0.5;
+//	}
+//
+//
+//	if(input.up && arm_setpoints[1] < 2250)
+//	{
+//		arm_set_1 += 1;
+//
+//	}
+//	else if(input.down && arm_setpoints[1] >= 0)
+//	{
+//		arm_set_1 -= 1;
+//	}
+//
+//	if(input.tri)
+//	{
+//		reset_rotation = 1;
+//		arm_set_0 = 0;
+//	}
+//	else
+//	{
+//		reset_rotation = 0;
+//	}
 
 //	arm_setpoints[0] = (int16_t)arm_set_0;
 //	arm_setpoints[1] = (int16_t)arm_set_1;
 //	arm_setpoints[2] = map(input.r2, 0, 255, 2592 - 50, 35);
 
-	input.lX = Controller_Drift(input.lX_raw, 12);
-	input.lY = Controller_Drift(input.lY_raw, 12);
-	input.rX = Controller_Drift(input.rX_raw, 12);
-	input.rY = Controller_Drift(input.rY_raw, 12);
-
-	input.lX = map(input.lX, -128, 127, -30, 30);
-	input.lY = map(input.lY, -128, 127, -30, 30);
-	input.rX = map(input.rX, -128, 127, -3, 3);
-	input.rY = map(input.rY, -128, 127, -30, 30);
+//	input.lX = Controller_Drift(input.lX_raw, 12);
+//	input.lY = Controller_Drift(input.lY_raw, 12);
+//	input.rX = Controller_Drift(input.rX_raw, 12);
+//	input.rY = Controller_Drift(input.rY_raw, 12);
+//
+//	input.lX = map(input.lX, -128, 127, -30, 30);
+//	input.lY = map(input.lY, -128, 127, -30, 30);
+//	input.rX = map(input.rX, -128, 127, -3, 3);
+//	input.rY = map(input.rY, -128, 127, -30, 30);
 
 	//--- Robot Centric
 //		vx_controller = input.lX;
@@ -210,23 +184,24 @@ void controller_process()
 //		vw_controller = -(input.rX);
 
 	//--- Field Centric
-	vx_controller = input.lX *  cos(yaw_radian) + input.lY * sin(yaw_radian);
-	vy_controller = input.lX * -sin(yaw_radian) + input.lY * cos(yaw_radian);
-	vw_controller += -(input.rX) / 20.0;
+//	vx_controller = input.lX *  cos(yaw_radian) + input.lY * sin(yaw_radian);
+//	vy_controller = input.lX * -sin(yaw_radian) + input.lY * cos(yaw_radian);
+//	vw_controller += -(input.rX) / 20.0;
+//
+//    if (vw_controller > 180.0f)
+//    {
+//    	vw_controller -= 360.0f;
+//    }
+//    else if (vw_controller < -180.0f)
+//    {
+//    	vw_controller += 360.0f;
+//    }
+//
+//	vx = vx_controller;
+//	vy = vy_controller;
+//	vw = vw_controller;
+//}
 
-    if (vw_controller > 180.0f)
-    {
-    	vw_controller -= 360.0f;
-    }
-    else if (vw_controller < -180.0f)
-    {
-    	vw_controller += 360.0f;
-    }
-
-	vx = vx_controller;
-	vy = vy_controller;
-	vw = vw_controller;
-}
 
 void Robot_Init()
 {
@@ -256,8 +231,6 @@ void Robot_Init()
     PID_Init(&PID_A, kp, ki, kd);
     PID_Init(&PID_B, kp, ki, kd);
     PID_Init(&PID_C, kp, ki, kd);
-    PID_Init(&PID_VY, 0.65, 0, 0);
-    PID_Init(&PID_VW, 0.45, 0, 10);
 
     HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
     HAL_UART_Receive_DMA(&huart2, (uint8_t*)UART2_RX_BUFFER, sizeof(UART2_RX_BUFFER));
@@ -267,6 +240,8 @@ void Robot_Init()
     HAL_UART_Receive_DMA(&huart6, (uint8_t*)UART6_RX_BUFFER, sizeof(UART6_RX_BUFFER));
 
 	udpClient_connect();
+
+	udp_rx.relay_state = 1; //--- TURN OFF RELAY
 
 	HAL_TIM_Base_Start_IT(&htim6);
 }
@@ -283,11 +258,11 @@ void Robot_Motor()
 //
 //		PID_Update(&PID_VW, UltraSonic[0], UltraSonic[1], 5);
 
-		PID_Update_Rotate(&PID_VW, vw, yaw_degree, 5);
-
-		int16_t va = Kinematics_Triangle(MOTOR_A, vx, vy, (int16_t)PID_VW.output);
-		int16_t vb = Kinematics_Triangle(MOTOR_B, vx, vy, (int16_t)PID_VW.output);
-		int16_t vc = Kinematics_Triangle(MOTOR_C, vx, vy, (int16_t)PID_VW.output);
+//		PID_Update_Rotate(&PID_VW, vw, yaw_degree, 5);
+//
+//		int16_t va = Kinematics_Triangle(MOTOR_A, vx, vy, (int16_t)PID_VW.output);
+//		int16_t vb = Kinematics_Triangle(MOTOR_B, vx, vy, (int16_t)PID_VW.output);
+//		int16_t vc = Kinematics_Triangle(MOTOR_C, vx, vy, (int16_t)PID_VW.output);
 
 //		int16_t va = udp_rx.motor_a;
 //		int16_t vb = udp_rx.motor_b;
@@ -307,9 +282,9 @@ void Robot_Motor()
 		Encoder_ResetCount(&encB);
 		Encoder_ResetCount(&encC);
 
-		PID_Update(&PID_A, (float)va, (float)encA.count, 999);
-		PID_Update(&PID_B, (float)vb, (float)encB.count, 999);
-		PID_Update(&PID_C, (float)vc, (float)encC.count, 999);
+		PID_Update(&PID_A, udp_rx.motorA_setpoint, (float)encA.count, 999);
+		PID_Update(&PID_B, udp_rx.motorB_setpoint, (float)encB.count, 999);
+		PID_Update(&PID_C, udp_rx.motorC_setpoint, (float)encC.count, 999);
 
 		Motor_Run(&motorA, (int16_t)PID_A.output);
 		Motor_Run(&motorB, (int16_t)PID_B.output);
@@ -339,26 +314,41 @@ void Robot_LED_Blink()
 void Robot_Transmit_UART()
 {
 	//--- VGT ARM
-	arm_setpoints[0] = udp_rx.motor_1;
-	arm_setpoints[1] = udp_rx.motor_2;
-	arm_setpoints[2] = udp_rx.motor_3;
-	memcpy(UART1_TX_BUFFER + 3, &arm_setpoints[0], 2);
-	memcpy(UART1_TX_BUFFER + 5, &arm_setpoints[1], 2);
-	memcpy(UART1_TX_BUFFER + 7, &arm_setpoints[2], 2);
-	memcpy(UART1_TX_BUFFER + 9, &reset_rotation, 1);
+	memcpy(UART1_TX_BUFFER + 3, &udp_rx.robot_start, 1);
+	memcpy(UART1_TX_BUFFER + 4, &udp_rx.robot_reset, 1);
+	memcpy(UART1_TX_BUFFER + 5, &udp_rx.relay_state, 1);
+	memcpy(UART1_TX_BUFFER + 6, &udp_rx.rotation_setpoint, 2);
+	memcpy(UART1_TX_BUFFER + 8, &udp_rx.horizontal_setpoint, 2);
+	memcpy(UART1_TX_BUFFER + 10, &udp_rx.vertical_setpoint, 2);
+
 	HAL_UART_Transmit_DMA(&huart1, (uint8_t*)UART1_TX_BUFFER, sizeof(UART1_TX_BUFFER));
+}
+
+void Read_Buttons()
+{
+	udp_tx.start_button = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_0);
+	udp_tx.reset_button = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_1);
+	udp_tx.buttons[0] = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_4);
+	udp_tx.buttons[1] = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_7);
+	udp_tx.buttons[2] = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3);
 }
 
 void Robot_Loop()
 {
-	yaw_process();
-	controller_process();
+	if(udp_rx.robot_reset)
+	{
+		NVIC_SystemReset();
+	}
+
+	Read_Buttons();
 
 	Robot_Transmit_UART();
 
 	Robot_Motor();
 
 	Robot_LED_Blink();
+
+	udp_cnt++;
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
@@ -366,8 +356,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 	if(htim == &htim6)
 	{
-		udp_cnt++;
-
 		Robot_Loop();
 	}
 }
@@ -377,13 +365,17 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart == &huart1) //--- VGT ARM
 	{
-		/* Save UDP */
-		memcpy(&udp_tx.enc_1, UART1_RX_BUFFER + 3, 2);
-		memcpy(&udp_tx.enc_2, UART1_RX_BUFFER + 5, 2);
-		memcpy(&udp_tx.enc_3, UART1_RX_BUFFER + 7, 2);
-		memcpy(&udp_tx.lim2, UART1_RX_BUFFER + 9, 1);
-		memcpy(&udp_tx.lim3, UART1_RX_BUFFER + 10, 1);
-
+		if(UART1_RX_BUFFER[0] == 'A' && UART1_RX_BUFFER[1] == 'B' && UART1_RX_BUFFER[2] == 'C')
+		{
+			/* Save UDP */
+			memcpy(&udp_tx.buttons[3], UART1_RX_BUFFER + 3, 1);
+			memcpy(&udp_tx.buttons[4], UART1_RX_BUFFER + 4, 1);
+			memcpy(&udp_tx.lim2, UART1_RX_BUFFER + 5, 1);
+			memcpy(&udp_tx.lim3, UART1_RX_BUFFER + 6, 1);
+			memcpy(&udp_tx.enc_1, UART1_RX_BUFFER + 7, 2);
+			memcpy(&udp_tx.enc_2, UART1_RX_BUFFER + 9, 2);
+			memcpy(&udp_tx.enc_3, UART1_RX_BUFFER + 11, 2);
+		}
 		HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
 	}
 
@@ -401,44 +393,77 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 	if(huart == &huart3)
 	{
-		memcpy((uint8_t*)&input + 4, UART3_RX_BUFFER + 3, sizeof(input) - 4);
+		if(UART3_RX_BUFFER[0] == 'A' && UART3_RX_BUFFER[1] == 'B' && UART3_RX_BUFFER[2] == 'C')
+		{
+			/* Save UDP */
+			memcpy(&udp_tx.rX, UART3_RX_BUFFER + 3, 1);
+			memcpy(&udp_tx.rY, UART3_RX_BUFFER + 4, 1);
+			memcpy(&udp_tx.lX, UART3_RX_BUFFER + 5, 1);
+			memcpy(&udp_tx.lY, UART3_RX_BUFFER + 6, 1);
 
+			memcpy(&udp_tx.r2, UART3_RX_BUFFER + 7, 1);
+			memcpy(&udp_tx.l2, UART3_RX_BUFFER + 8, 1);
+			memcpy(&udp_tx.r1, UART3_RX_BUFFER + 9, 1);
+			memcpy(&udp_tx.l1, UART3_RX_BUFFER + 10, 1);
+			memcpy(&udp_tx.r3, UART3_RX_BUFFER + 11, 1);
+			memcpy(&udp_tx.l3, UART3_RX_BUFFER + 12, 1);
+
+			memcpy(&udp_tx.crs, UART3_RX_BUFFER + 13, 1);
+			memcpy(&udp_tx.sqr, UART3_RX_BUFFER + 14, 1);
+			memcpy(&udp_tx.tri, UART3_RX_BUFFER + 15, 1);
+			memcpy(&udp_tx.cir, UART3_RX_BUFFER + 16, 1);
+			memcpy(&udp_tx.up, UART3_RX_BUFFER + 17, 1);
+			memcpy(&udp_tx.down, UART3_RX_BUFFER + 18, 1);
+			memcpy(&udp_tx.right, UART3_RX_BUFFER + 19, 1);
+			memcpy(&udp_tx.left, UART3_RX_BUFFER + 20, 1);
+			memcpy(&udp_tx.share, UART3_RX_BUFFER + 21, 1);
+			memcpy(&udp_tx.option, UART3_RX_BUFFER + 22, 1);
+
+			memcpy(&udp_tx.ps, UART3_RX_BUFFER + 23, 1);
+			memcpy(&udp_tx.touchpad, UART3_RX_BUFFER + 24, 1);
+			memcpy(&udp_tx.battery, UART3_RX_BUFFER + 25, 1);
+
+			memcpy(&udp_tx.gX, UART3_RX_BUFFER + 26, 2);
+			memcpy(&udp_tx.gY, UART3_RX_BUFFER + 28, 2);
+			memcpy(&udp_tx.gZ, UART3_RX_BUFFER + 30, 2);
+			memcpy(&udp_tx.aX, UART3_RX_BUFFER + 32, 2);
+			memcpy(&udp_tx.aY, UART3_RX_BUFFER + 34, 2);
+			memcpy(&udp_tx.aZ, UART3_RX_BUFFER + 36, 2);
+		}
 		HAL_UART_Receive_DMA(&huart3, (uint8_t*)UART3_RX_BUFFER, sizeof(UART3_RX_BUFFER));
 	}
 
 	if(huart == &huart4)
 	{
-		memcpy(UltraSonic, UART4_RX_BUFFER + 3, sizeof(UltraSonic));
-
-		/* Save UDP */
-		memcpy(udp_tx.ultrasonic, UltraSonic, sizeof(udp_tx.ultrasonic));
-//		memcpy(&udp_tx.ultrasonic[0], &UltraSonic[0], 2);
-//		memcpy(&udp_tx.ultrasonic[1], &UltraSonic[1], 2);
-//		memcpy(&udp_tx.ultrasonic[2], &UltraSonic[2], 2);
-//		memcpy(&udp_tx.ultrasonic[3], &UltraSonic[3], 2);
-
+		if(UART4_RX_BUFFER[0] == 'A' && UART4_RX_BUFFER[1] == 'B' && UART4_RX_BUFFER[2] == 'C')
+		{
+			/* Save UDP */
+			memcpy(&udp_tx.ultrasonic[0], UART4_RX_BUFFER + 3, 2);
+			memcpy(&udp_tx.ultrasonic[1], UART4_RX_BUFFER + 5, 2);
+			memcpy(&udp_tx.ultrasonic[2], UART4_RX_BUFFER + 7, 2);
+			memcpy(&udp_tx.ultrasonic[3], UART4_RX_BUFFER + 9, 2);
+		}
 		HAL_UART_Receive_DMA(&huart4, (uint8_t*)UART4_RX_BUFFER, sizeof(UART4_RX_BUFFER));
 	}
 
 	if(huart == &huart5)
 	{
-		memcpy(&encX.count, UART5_RX_BUFFER + 3, 2);
-		memcpy(&encY.count, UART5_RX_BUFFER + 5, 2);
-
-		/* Save UDP */
-		udp_tx.enc_x = encX.count;
-		udp_tx.enc_y = encY.count;
-
+		if(UART5_RX_BUFFER[0] == 'A' && UART5_RX_BUFFER[1] == 'B' && UART5_RX_BUFFER[2] == 'C')
+		{
+			/* Save UDP */
+			memcpy(&udp_tx.enc_x, UART5_RX_BUFFER + 3, 2);
+			memcpy(&udp_tx.enc_y, UART5_RX_BUFFER + 5, 2);
+		}
 		HAL_UART_Receive_DMA(&huart5, (uint8_t*)UART5_RX_BUFFER, sizeof(UART5_RX_BUFFER));
 	}
 
 	if(huart == &huart6) //--- NANO YAW
 	{
-		memcpy(&yaw_degree_raw, UART6_RX_BUFFER + 3, 4);
-
-		/* Save UDP */
-		udp_tx.yaw_degree = yaw_degree;
-
+		if(UART6_RX_BUFFER[0] == 'A' && UART6_RX_BUFFER[1] == 'B' && UART6_RX_BUFFER[2] == 'C')
+		{
+			/* Save UDP */
+			memcpy(&udp_tx.yaw_degree, UART6_RX_BUFFER + 3, 4);
+		}
 		HAL_UART_Receive_DMA(&huart6, (uint8_t*)UART6_RX_BUFFER, sizeof(UART6_RX_BUFFER));
 	}
 

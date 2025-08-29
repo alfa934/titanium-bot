@@ -16,10 +16,6 @@ typedef struct
 	int8_t rY;
 	int8_t lX;
 	int8_t lY;
-	int8_t rX_raw;
-	int8_t rY_raw;
-	int8_t lX_raw;
-	int8_t lY_raw;
 	uint8_t r2;
 	uint8_t l2;
 	uint8_t r1;

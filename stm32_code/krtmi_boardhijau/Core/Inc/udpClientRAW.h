@@ -52,25 +52,63 @@ typedef struct
 	uint8_t lim2;
 	uint8_t lim3;
 
+	uint8_t start_button;
+	uint8_t reset_button;
+	uint8_t buttons[5];
+
+	int8_t rX;
+	int8_t rY;
+	int8_t lX;
+	int8_t lY;
+	uint8_t r2;
+	uint8_t l2;
+	uint8_t r1;
+	uint8_t l1;
+	uint8_t r3;
+	uint8_t l3;
+	uint8_t crs;
+	uint8_t sqr;
+	uint8_t tri;
+	uint8_t cir;
+	uint8_t up;
+	uint8_t down;
+	uint8_t right;
+	uint8_t left;
+	uint8_t share;
+	uint8_t option;
+
+	uint8_t ps;
+	uint8_t touchpad;
+	uint8_t battery;
+
+	int16_t gX, gY, gZ;
+	int16_t aX, aY, aZ;
 } udpTx_t ;
 
 typedef struct
 {
-	int16_t motor_a;
-	int16_t motor_b;
-	int16_t motor_c;
+	uint8_t robot_start;
+	uint8_t robot_reset;
 
-	int16_t motor_1;
-	int16_t motor_2;
-	int16_t motor_3;
+	int16_t motorA_setpoint;
+	int16_t motorB_setpoint;
+	int16_t motorC_setpoint;
 
-	uint8_t relay;
+	int16_t rotation_setpoint;
+	int16_t horizontal_setpoint;
+	int16_t vertical_setpoint;
+	uint8_t relay_state;
+
+	uint8_t indicator[10];
+
 } udpRx_t ;
+
+#define UDP_BUFFER_SIZE 81
 
 extern udpTx_t udp_tx;
 extern udpRx_t udp_rx;
-extern char udp_rx_buffer[64];
-extern char udp_tx_buffer[64];
+extern char udp_rx_buffer[UDP_BUFFER_SIZE];
+extern char udp_tx_buffer[UDP_BUFFER_SIZE];
 
 
 void udpClient_connect(void);

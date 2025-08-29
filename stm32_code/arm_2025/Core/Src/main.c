@@ -141,7 +141,7 @@ char UART1_TX_BUFFER[53] = "ABC";
 //--- PULL UP
 uint8_t LIM_SW2_STAT = 1;
 uint8_t LIM_SW3_STAT = 1;
-uint8_t button1_state = 1, button2_state= 1;
+uint8_t button1_state = 1, button2_state = 1;
 
 
 void setMotor(uint8_t motor, int16_t speed)
@@ -274,7 +274,7 @@ void arm_state_machine()
 		case 1: //--- Wait for motors to settle, then reset encoders
 			if(arm_cnt_ms >= 1250)
 			{
-			  arm_cnt_ms = 0;
+
 			  TIM1 -> CNT = TIM2 -> CNT = TIM3 -> CNT = 0;
 			  arm_state++;
 			}
@@ -314,6 +314,11 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if(htim == &htim6)
 	{
+		if(robot_reset)
+		{
+			NVIC_SystemReset();
+		}
+
 		led_blink();
 
 		transmit_uart();
