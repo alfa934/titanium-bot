@@ -121,12 +121,20 @@ void udpReadCallback(const ros::TimerEvent &event)
 
 void udpWriteCallback(const ros::TimerEvent &event)
 {
-	memcpy(tx_buffer +  3, &motor.motor_a, 2);
-    memcpy(tx_buffer +  5, &motor.motor_b, 2);
-    memcpy(tx_buffer +  7, &motor.motor_c, 2);
-    memcpy(tx_buffer +  9, &motor.motor_1, 2);
-    memcpy(tx_buffer + 11, &motor.motor_2, 2);
-    memcpy(tx_buffer + 13, &motor.motor_3, 2);
+    memcpy(tx_buffer +  3, &robot_system.start, 1);
+    memcpy(tx_buffer +  4, &robot_system.reset, 1);
+	memcpy(tx_buffer +  5, &motor.motor_a, 2);
+    memcpy(tx_buffer +  7, &motor.motor_b, 2);
+    memcpy(tx_buffer +  9, &motor.motor_c, 2);
+    memcpy(tx_buffer + 11, &motor.motor_1, 2);
+    memcpy(tx_buffer + 13, &motor.motor_2, 2);
+    memcpy(tx_buffer + 15, &motor.motor_3, 2);
+    memcpy(tx_buffer + 17, &motor.relay_state, 1);
+
+    for(int i = 0; i < 10; i++)
+    {
+        memcpy(tx_buffer + 18 + i, &indicator.indicator[i], 1);
+    }
 	
     socklen_t len = sizeof(cliaddr);
 	sendto(sockfd, tx_buffer, sizeof(tx_buffer), MSG_CONFIRM,
@@ -135,12 +143,17 @@ void udpWriteCallback(const ros::TimerEvent &event)
 
 void motorCallback(const robot_msgs::motorConstPtr &msg)
 {
-	motor.motor_a = msg->motor_a;
-	motor.motor_b = msg->motor_b;
-	motor.motor_c = msg->motor_c;
-    motor.motor_1 = msg->motor_1;
-    motor.motor_2 = msg->motor_2;
-    motor.motor_3 = msg->motor_3;
+	motor = *msg;
+}
+
+void robotSystemCallback(const robot_msgs::robot_systemConstPtr &msg)
+{
+    robot_system = *msg;
+}
+
+void indicatorCallback(const robot_msgs::indicatorConstPtr &msg)
+{
+    indicator = *msg;
 }
 
 void initSocket()
@@ -189,6 +202,8 @@ int main(int argc, char **argv)
 	pub_yaw = nh.advertise<robot_msgs::yaw>("/sensor/yaw", 10);
     
     sub_motor = nh.subscribe("/actuator/motor", 10, motorCallback);
+    sub_robot_system = nh.subscribe("/system/robot_system", 10, robotSystemCallback);
+    sub_indicator = nh.subscribe("/system/indicator", 10, indicatorCallback);
 
     timer_udpRead = nh.createTimer(ros::Duration(0.001), udpReadCallback);
     timer_udpWrite = nh.createTimer(ros::Duration(0.001), udpWriteCallback);
