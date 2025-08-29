@@ -241,8 +241,6 @@ void Robot_Init()
 
 	udpClient_connect();
 
-	udp_rx.relay_state = 1; //--- TURN OFF RELAY
-
 	HAL_TIM_Base_Start_IT(&htim6);
 }
 

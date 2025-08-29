@@ -252,11 +252,11 @@ void write_relay(uint8_t state)
 {
 	if(state == 0) //--- ON STATE
 	{
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, 0);
+		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, 1);
 	}
 	else //--- OFF STATE
 	{
-		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, 1);
+		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, 0);
 	}
 }
 
@@ -327,7 +327,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 
 		read_button();
 
-//		write_relay(relay_state);
+		write_relay(relay_state);
 
 		arm_state_machine();
 	}
@@ -442,9 +442,6 @@ int main(void)
   PID_Init(&pid_rotation, kp, ki, kd);
   PID_Init(&pid_horizontal, kp, ki, kd);
   PID_Init(&pid_vertical, kp, ki, kd);
-
-  //--- TURN OFF RELAY
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_13, 1);
 
   HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
 
