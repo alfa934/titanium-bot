@@ -47,11 +47,53 @@ robot_msgs::camera camera;
 robot_msgs::button button;
 robot_msgs::controller controller;
 
+enum ArmCommand : uint8_t {
+    none,
+    pickplace,
+    cancel
+};
+
 int16_t total_enc_rotation = 0;
 int16_t total_enc_horizontal = 0;
 int16_t total_enc_vertical = 0;
 
-uint8_t robot_state = 0;
+enum ArmState : uint8_t {
+    wait_start,
+    init_vert,
+    init_rot,
+    init_hor,
+    ready,
+    pick_search,
+    pick_down,
+    pick_up,
+    pick_extend,
+    holding,
+    place_down,
+};
+
+ArmState robot_arm_state = wait_start;
+
+ArmCommand parseArmCommand (robot_msgs::controller c) {
+    if (c.crs) return pickplace;
+    if (c.sqr) return cancel;
+    return none;
+}
+
+ArmState processArmState (ArmCommand cmd, ArmState s) {
+    if (cmd == pickplace) {
+        if (s == ready) return pick_search;
+        if (s == holding) return place_down;
+    }
+    if (cmd == cancel) {
+        if (s >= pick_search && s <= pick_down ||
+            s == holding) return init_vert;
+    }
+    if (cmd == none) {
+        return s;
+    }
+    return s;
+}
+
 int16_t robot_cnt_ms = 0;
 
 int16_t rotation_setpoint = 0;
@@ -136,15 +178,28 @@ void timer10msCallback(const ros::TimerEvent &event)
 
 void timer1msCallback(const ros::TimerEvent &event)
 {
-    switch(robot_state)
+    //--- parse the controller arm command
+    ArmCommand command = parseArmCommand(controller);
+
+    //--- check for input change
+    if (command != none) {
+        robot_arm_state = processArmState(command, robot_arm_state);
+    }
+
+    //--- execute current action
+    switch(robot_arm_state)
     {
-        case 0: //--- wait until start button
+        case wait_start: //--- wait until start button
             if(robot_system.start)
             {
-                robot_state++;
+                robot_arm_state = init_vert;
             }
             break;
-        case 1: //--- go up
+        case init_vert: //--- go up
+            if (relay.relay_state != 0) {
+                relay.relay_state = 0;
+            }
+
             memcpy(&rot_gain_pid, &rot_enc_pid, sizeof(PID_Gains_t));
             memcpy(&hor_gain_pid, &hor_enc_pid, sizeof(PID_Gains_t));
             memcpy(&ver_gain_pid, &ver_enc_pid, sizeof(PID_Gains_t));
@@ -160,10 +215,10 @@ void timer1msCallback(const ros::TimerEvent &event)
 
             if((MAX_VERTICAL_PULSE - vertical_feedback) < ver_enc_pid.tolerance)
             {
-                robot_state++;
+                robot_arm_state = init_rot;
             }
             break;
-        case 2:
+        case init_rot: //--- ensure rotation at 0
             rotation_setpoint = 0;
             rotation_feedback = total_enc_rotation;
             horizontal_feedback = total_enc_horizontal;
@@ -171,10 +226,10 @@ void timer1msCallback(const ros::TimerEvent &event)
 
             if(abs(rotation_setpoint - rotation_feedback) < rot_enc_pid.tolerance)
             {
-                robot_state++;
+                robot_arm_state = init_hor;
             }
             break;
-        case 3: //--- go forward
+        case init_hor: //--- go forward
             horizontal_setpoint = SEARCH_HORIZONTAL_PULSE;
             
             rotation_feedback = total_enc_rotation;
@@ -183,27 +238,16 @@ void timer1msCallback(const ros::TimerEvent &event)
 
             if(abs(horizontal_setpoint - horizontal_feedback) < hor_enc_pid.tolerance)
             {
-                robot_state++;
+                rot_gain_pid.max_output = rot_gain_pid.max_windup = 0;
+                hor_gain_pid.max_output = hor_gain_pid.max_windup = 0;
+                ver_gain_pid.max_output = ver_gain_pid.max_windup = 0;
+                robot_arm_state = ready;
             }
             break;
-        case 4:
-            rot_gain_pid.max_output = rot_gain_pid.max_windup = 0;
-            hor_gain_pid.max_output = hor_gain_pid.max_windup = 0;
-            ver_gain_pid.max_output = ver_gain_pid.max_windup = 0;
-            if(controller.crs)
-            {
-                robot_state++;
-            }
-            break;
-        case 5: //---- SEARCH MODE
+        case pick_search: //---- SEARCH MODE
             memcpy(&rot_gain_pid, &rot_cam_pid, sizeof(PID_Gains_t));
             memcpy(&hor_gain_pid, &hor_cam_pid, sizeof(PID_Gains_t));
             memcpy(&ver_gain_pid, &ver_enc_pid, sizeof(PID_Gains_t));
-
-            if(controller.sqr)
-            {
-                robot_state = 1;
-            }
             
             vertical_setpoint = MAX_VERTICAL_PULSE; 
             vertical_feedback = total_enc_vertical;
@@ -225,16 +269,12 @@ void timer1msCallback(const ros::TimerEvent &event)
             {
                 rot_gain_pid.max_output = rot_gain_pid.max_windup = 0;
                 hor_gain_pid.max_output = hor_gain_pid.max_windup = 0;
-                robot_state++;
+                robot_arm_state = pick_down;
             }
 
             break;
 
-        case 6: //--- go down
-            if(controller.sqr)
-            {
-                robot_state = 1;
-            }
+        case pick_down: //--- go down
 
             if(vertical_setpoint >= 25)
             {
@@ -255,26 +295,26 @@ void timer1msCallback(const ros::TimerEvent &event)
                 }
                 if(robot_cnt_ms >= 249)
                 {
-                    robot_state++;
+                    robot_arm_state = pick_up;
                     robot_cnt_ms = 0;
                 }
                 robot_cnt_ms++;
             }
             break;
 
-        case 7://--- go up
+        case pick_up: //--- go up
             if(vertical_setpoint <= MAX_VERTICAL_PULSE - 5)
             {
                 vertical_setpoint += 5; 
-            } 
+            }
             vertical_feedback = total_enc_vertical;
 
             if((MAX_VERTICAL_PULSE - vertical_feedback) < ver_enc_pid.tolerance)
             {
-                robot_state++;
+                robot_arm_state = pick_extend;
             }
             break;
-        case 8: //--- extend, get ready for trash bin
+        case pick_extend: //--- extend, get ready for trash bin
             memcpy(&rot_gain_pid, &rot_enc_pid, sizeof(PID_Gains_t));
             memcpy(&hor_gain_pid, &hor_enc_pid, sizeof(PID_Gains_t));
             
@@ -286,25 +326,14 @@ void timer1msCallback(const ros::TimerEvent &event)
 
             if(abs(rotation_setpoint - rotation_feedback) <= rot_enc_pid.tolerance && abs(horizontal_setpoint - horizontal_feedback) <= hor_enc_pid.tolerance)
             {
-                robot_state++;
+                rot_gain_pid.max_output = rot_gain_pid.max_windup = 0;
+                hor_gain_pid.max_output = hor_gain_pid.max_windup = 0;
+                ver_gain_pid.max_output = ver_gain_pid.max_windup = 0;
+                robot_arm_state = holding;
             }
 
             break;
-        case 9:
-            rot_gain_pid.max_output = rot_gain_pid.max_windup = 0;
-            hor_gain_pid.max_output = hor_gain_pid.max_windup = 0;
-            ver_gain_pid.max_output = ver_gain_pid.max_windup = 0;
-            if(controller.crs)
-            {
-                robot_state++;
-            }
-            if(controller.sqr)
-            {
-                relay.relay_state = 0;
-                robot_state = 1;
-            }
-            break;
-        case 10: //--- go down
+        case place_down: //--- go down
             memcpy(&ver_gain_pid, &ver_enc_pid, sizeof(PID_Gains_t));
             rot_gain_pid.max_output = rot_gain_pid.max_windup = 0;
             hor_gain_pid.max_output = hor_gain_pid.max_windup = 0;
@@ -326,7 +355,7 @@ void timer1msCallback(const ros::TimerEvent &event)
                 }
                 if(robot_cnt_ms >= 2500)
                 {
-                    robot_state = 1;
+                    robot_arm_state = init_vert;
                     robot_cnt_ms = 0;
                 }
                 robot_cnt_ms++;
