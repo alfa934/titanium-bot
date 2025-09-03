@@ -25,8 +25,9 @@ void timer1msCallback(const ros::TimerEvent &event)
     ultrasonic.ultra_d += 40;
     
     pub_ultrasonic.publish(ultrasonic);
-
-    ROS_INFO_STREAM(MyPID.update(10, 5, 999, 1000) << "\n");
+    MyPID.setMaxOutput(999);
+    MyPID.setMaxWindup(999);
+    ROS_INFO_STREAM(MyPID.update(10, 5, 1000) << "\n");
 }
 
 

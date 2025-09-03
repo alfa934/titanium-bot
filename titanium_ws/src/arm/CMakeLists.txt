@@ -153,10 +153,20 @@ include_directories(
 # )
 
 add_executable(arm_test src/arm_test.cpp)
-target_link_libraries(arm_test
-  ${catkin_LIBRARIES}
-)
+target_link_libraries(arm_test ${catkin_LIBRARIES})
 add_dependencies(arm_test ${catkin_EXPORTED_TARGETS})
+
+add_executable(manual_arm src/manual_arm.cpp)
+target_link_libraries(manual_arm ${catkin_LIBRARIES})
+add_dependencies(manual_arm ${catkin_EXPORTED_TARGETS})
+
+add_executable(pid_arm src/pid_arm_position.cpp)
+target_link_libraries(pid_arm ${catkin_LIBRARIES})
+add_dependencies(pid_arm ${catkin_EXPORTED_TARGETS})
+
+add_executable(pid_arm_test src/pid_arm_test.cpp)
+target_link_libraries(pid_arm_test ${catkin_LIBRARIES})
+add_dependencies(pid_arm_test ${catkin_EXPORTED_TARGETS})
 
 
 #############

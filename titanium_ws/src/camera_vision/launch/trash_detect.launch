@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="display" default="false" />
+
+    <!-- First node -->
+    <node name="raw_cam_pub" pkg="camera_vision" type="raw_cam_pub" output="screen">
+    
+    </node>
+    
+    <!-- Second node -->
+    <node name="trash_detector_node" pkg="camera_vision" type="trash_detection" output="screen">
+        <param name="display" type="bool" value="$(arg display)" />
+    </node>
+    
+</launch>

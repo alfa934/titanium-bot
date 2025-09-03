@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="setpoint" default="0.0" />
+    <arg name="kp" default="0.0" />
+    <arg name="ki" default="0.0" />
+    <arg name="kd" default="0.0" />
+
+    <!-- First node -->
+    <node name="pid_arm_test_node" pkg="arm" type="pid_arm_test" output="screen">
+        <param name="setpoint" type="double" value="$(arg setpoint)" />
+        <param name="kp" type="double" value="$(arg kp)" />
+        <param name="ki" type="double" value="$(arg ki)" />
+        <param name="kd" type="double" value="$(arg kd)" />
+    </node>
+    
+    <!-- Second node -->
+    <node name="pid_arm_node" pkg="arm" type="pid_arm" output="screen">
+
+    </node>
+    
+</launch>

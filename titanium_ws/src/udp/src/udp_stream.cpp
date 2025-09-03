@@ -31,17 +31,22 @@ robot_msgs::controller controller;
 robot_msgs::encoder encoder;
 robot_msgs::indicator indicator;
 robot_msgs::limit_switch limit_switch;
-robot_msgs::motor motor;
+robot_msgs::motor motor_base;
+robot_msgs::motor motor_arm;
+robot_msgs::motor relay;
 robot_msgs::robot_system robot_system;
 robot_msgs::ultrasonic ultrasonic;
 robot_msgs::yaw yaw;
 
 ros::Timer timer_udpRead, timer_udpWrite;
+ros::Timer timer_timeout;
+ros::Time last_arm_time, last_base_time, last_relay_time, last_system_time, last_indicator_time;
+const double TIMEOUT = 0.5;
 
 ros::Publisher  pub_encoder, pub_limit, pub_ultra, pub_yaw,
                 pub_button, pub_controller;
 
-ros::Subscriber sub_motor, sub_robot_system, sub_indicator;
+ros::Subscriber sub_motor_base, sub_motor_arm, sub_relay, sub_robot_system, sub_indicator;
 
 void udpReadCallback(const ros::TimerEvent &event)
 {
@@ -78,6 +83,15 @@ void udpReadCallback(const ros::TimerEvent &event)
         memcpy(&button.button3, rx_buffer + 37, 1);
         memcpy(&button.button4, rx_buffer + 38, 1);
         memcpy(&button.button5, rx_buffer + 39, 1);
+
+        // if(button.resetButton == 0)
+        // {
+        //     robot_system.reset = 1;
+        // }
+        // else
+        // {
+        //     robot_system.reset = 0;
+        // }
 
         memcpy(&controller.rX, rx_buffer + 40, 1);
         memcpy(&controller.rY, rx_buffer + 41, 1);
@@ -123,13 +137,13 @@ void udpWriteCallback(const ros::TimerEvent &event)
 {
     memcpy(tx_buffer +  3, &robot_system.start, 1);
     memcpy(tx_buffer +  4, &robot_system.reset, 1);
-	memcpy(tx_buffer +  5, &motor.motor_a, 2);
-    memcpy(tx_buffer +  7, &motor.motor_b, 2);
-    memcpy(tx_buffer +  9, &motor.motor_c, 2);
-    memcpy(tx_buffer + 11, &motor.motor_1, 2);
-    memcpy(tx_buffer + 13, &motor.motor_2, 2);
-    memcpy(tx_buffer + 15, &motor.motor_3, 2);
-    memcpy(tx_buffer + 17, &motor.relay_state, 1);
+	memcpy(tx_buffer +  5, &motor_base.motor_a, 2);
+    memcpy(tx_buffer +  7, &motor_base.motor_b, 2);
+    memcpy(tx_buffer +  9, &motor_base.motor_c, 2);
+    memcpy(tx_buffer + 11, &motor_arm.motor_1, 2);
+    memcpy(tx_buffer + 13, &motor_arm.motor_2, 2);
+    memcpy(tx_buffer + 15, &motor_arm.motor_3, 2);
+    memcpy(tx_buffer + 17, &relay.relay_state, 1);
 
     for(int i = 0; i < 10; i++)
     {
@@ -141,18 +155,66 @@ void udpWriteCallback(const ros::TimerEvent &event)
 			(const struct sockaddr *) &cliaddr, len); 
 }
 
-void motorCallback(const robot_msgs::motorConstPtr &msg)
+void timeoutCallback(const ros::TimerEvent& event)
 {
-	motor = *msg;
+    if((ros::Time::now() - last_base_time).toSec() > TIMEOUT)
+    {
+        motor_arm.motor_a = 0;
+        motor_arm.motor_b = 0;
+        motor_arm.motor_c = 0;
+    }
+    if((ros::Time::now() - last_arm_time).toSec() > TIMEOUT)
+    {
+        motor_arm.motor_1 = 0;
+        motor_arm.motor_2 = 0;
+        motor_arm.motor_3 = 0;
+    }
+    if((ros::Time::now() - last_relay_time).toSec() > TIMEOUT)
+    {
+        motor_arm.relay_state = 0;
+    }
+    if((ros::Time::now() - last_system_time).toSec() > TIMEOUT)
+    {
+        robot_system.reset = 0;
+        robot_system.start = 0;
+    }
+    if((ros::Time::now() - last_indicator_time).toSec() > TIMEOUT)
+    {
+        for(int i = 0; i < 10; i++)
+        {
+            indicator.indicator[i] = 0;
+        }
+        
+    }
+}
+
+void motorBaseCallback(const robot_msgs::motorConstPtr &msg)
+{
+    last_base_time = ros::Time::now();
+	motor_base = *msg;
+}
+
+void motorArmCallback(const robot_msgs::motorConstPtr &msg)
+{
+    last_arm_time = ros::Time::now();
+    motor_arm = *msg;
+}
+
+void relayCallback(const robot_msgs::motorConstPtr &msg)
+{
+    last_relay_time = ros::Time::now();
+    relay = *msg;
 }
 
 void robotSystemCallback(const robot_msgs::robot_systemConstPtr &msg)
 {
+    last_system_time = ros::Time::now();
     robot_system = *msg;
 }
 
 void indicatorCallback(const robot_msgs::indicatorConstPtr &msg)
 {
+    last_indicator_time = ros::Time::now();
     indicator = *msg;
 }
 
@@ -201,13 +263,16 @@ int main(int argc, char **argv)
 	pub_ultra = nh.advertise<robot_msgs::ultrasonic>("/sensor/ultrasonic", 10);
 	pub_yaw = nh.advertise<robot_msgs::yaw>("/sensor/yaw", 10);
     
-    sub_motor = nh.subscribe("/actuator/motor", 10, motorCallback);
+    sub_motor_base = nh.subscribe("/actuator/motor/base", 10, motorBaseCallback);
+    sub_motor_arm = nh.subscribe("/actuator/motor/arm", 10, motorArmCallback);
+    sub_relay = nh.subscribe("/actuator/relay", 10, relayCallback);
     sub_robot_system = nh.subscribe("/system/robot_system", 10, robotSystemCallback);
     sub_indicator = nh.subscribe("/system/indicator", 10, indicatorCallback);
 
     timer_udpRead = nh.createTimer(ros::Duration(0.001), udpReadCallback);
     timer_udpWrite = nh.createTimer(ros::Duration(0.001), udpWriteCallback);
-
+    timer_timeout = nh.createTimer(ros::Duration(0.001), timeoutCallback);
+    
     spinner.start();
 
     ros::waitForShutdown();

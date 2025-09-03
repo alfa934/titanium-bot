@@ -58,6 +58,7 @@ add_message_files(
   limit_switch.msg
   motor.msg
   odom.msg
+  pid.msg
   robot_system.msg
   ultrasonic.msg
   yaw.msg

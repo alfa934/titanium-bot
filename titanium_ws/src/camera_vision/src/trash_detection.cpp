@@ -253,7 +253,7 @@ int main(int argc, char** argv)
     ros::NodeHandle nh;
     ros::NodeHandle private_nh("~");
     
-    private_nh.param("display", show_display, false);
+    private_nh.param<bool>("display", show_display, false);
 
     camera.cameraCenterX = CAMERA_CENTER_X;
     camera.cameraCenterY = CAMERA_CENTER_Y;

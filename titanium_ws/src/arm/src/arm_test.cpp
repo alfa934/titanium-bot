@@ -86,105 +86,105 @@ void timer1msCallback(const ros::TimerEvent &event)
     // }
     // robot_time_ms++;
 
-    switch(robot_state)
-    {
-        case 0:
-            arm_rotation.setGains(1, 0, 0);
-            arm_horizontal.setGains(1, 0, 0);
-            arm_vertical.setGains(1, 0, 0);
+    // switch(robot_state)
+    // {
+    //     case 0:
+    //         arm_rotation.setGains(1, 0, 0);
+    //         arm_horizontal.setGains(1, 0, 0);
+    //         arm_vertical.setGains(1, 0, 0);
 
-            param_rotation.dt = 10;
-            param_horizontal.dt = 10;
-            param_vertical.dt = 10;
+    //         param_rotation.dt = 10;
+    //         param_horizontal.dt = 10;
+    //         param_vertical.dt = 10;
             
-            robot_state++;
+    //         robot_state++;
             
-            break;
-        case 1:
-            param_vertical.setpoint = MAX_VERTICAL_PULSE - 100;
-            param_vertical.feedback = total_encoder[2];
-            param_vertical.max_output = 900;
+    //         break;
+    //     case 1:
+    //         param_vertical.setpoint = MAX_VERTICAL_PULSE - 100;
+    //         param_vertical.feedback = total_encoder[2];
+    //         param_vertical.max_output = 900;
 
-            if(abs((int)arm_vertical.getError()) <= 50)
-            {
-                if(robot_time_ms >= 500)
-                {
-                    robot_state++;
-                    robot_time_ms = 0;
-                }
-                robot_time_ms++;
-            }
+    //         if(abs((int)arm_vertical.getError()) <= 50)
+    //         {
+    //             if(robot_time_ms >= 500)
+    //             {
+    //                 robot_state++;
+    //                 robot_time_ms = 0;
+    //             }
+    //             robot_time_ms++;
+    //         }
 
-            break;
+    //         break;
 
-        case 2:
-            param_horizontal.setpoint = MAX_HORIZONTAL_PULSE/2;
-            param_horizontal.feedback = total_encoder[1];
-            param_horizontal.max_output = 500;
+    //     case 2:
+    //         param_horizontal.setpoint = MAX_HORIZONTAL_PULSE/2;
+    //         param_horizontal.feedback = total_encoder[1];
+    //         param_horizontal.max_output = 500;
             
-            if(abs((int)arm_horizontal.getError()) <= 50)
-            {
-                if(robot_time_ms >= 500)
-                {
-                    robot_state++;
-                    robot_time_ms = 0;
-                }
-                robot_time_ms++;
-            }
+    //         if(abs((int)arm_horizontal.getError()) <= 50)
+    //         {
+    //             if(robot_time_ms >= 500)
+    //             {
+    //                 robot_state++;
+    //                 robot_time_ms = 0;
+    //             }
+    //             robot_time_ms++;
+    //         }
 
-            break;
-        case 3:
-            arm_rotation.setGains(2, 0, 0);
-            arm_horizontal.setGains(30, 0, 0);
+    //         break;
+    //     case 3:
+    //         arm_rotation.setGains(2, 0, 0);
+    //         arm_horizontal.setGains(30, 0, 0);
             
-            robot_state++;
-            break;
+    //         robot_state++;
+    //         break;
 
-        case 4:
-            if(camera.trashDetected)
-            {
-                param_rotation.setpoint = 0;
-                param_rotation.feedback = camera.closestTrashX;
-                param_rotation.max_output = 150;
+    //     case 4:
+    //         if(camera.trashDetected)
+    //         {
+    //             param_rotation.setpoint = 0;
+    //             param_rotation.feedback = camera.closestTrashX;
+    //             param_rotation.max_output = 150;
 
-                param_horizontal.setpoint = 0;
-                param_horizontal.feedback = camera.closestTrashY;
-                param_horizontal.max_output = 200;
-            }
-            else
-            {
-                param_rotation.max_output = 0;
-                param_horizontal.max_output = 0;
-            }
-            break;
+    //             param_horizontal.setpoint = 0;
+    //             param_horizontal.feedback = camera.closestTrashY;
+    //             param_horizontal.max_output = 200;
+    //         }
+    //         else
+    //         {
+    //             param_rotation.max_output = 0;
+    //             param_horizontal.max_output = 0;
+    //         }
+    //         break;
 
-        default:
-            break;
-    }
+    //     default:
+    //         break;
+    // }
 
-    motor.motor_1 = (int16_t)arm_rotation.update(param_rotation.setpoint, param_rotation.feedback, 
-                                        param_rotation.max_output, param_rotation.dt);
-    motor.motor_2 = (int16_t)arm_horizontal.update(param_horizontal.setpoint, param_horizontal.feedback, 
-                                        param_horizontal.max_output, param_horizontal.dt);
-    motor.motor_3 = (int16_t)arm_vertical.update(param_vertical.setpoint, param_vertical.feedback, 
-                                        param_vertical.max_output, param_vertical.dt);
+    // motor.motor_1 = (int16_t)arm_rotation.update(param_rotation.setpoint, param_rotation.feedback, 
+    //                                     param_rotation.max_output, param_rotation.dt);
+    // motor.motor_2 = (int16_t)arm_horizontal.update(param_horizontal.setpoint, param_horizontal.feedback, 
+    //                                     param_horizontal.max_output, param_horizontal.dt);
+    // motor.motor_3 = (int16_t)arm_vertical.update(param_vertical.setpoint, param_vertical.feedback, 
+    //                                     param_vertical.max_output, param_vertical.dt);
 
-    if(total_encoder[1] >= 1600)  
-    {
-        motor.motor_2 = (motor.motor_2 < 0) ? motor.motor_2 : 0;  //--- Negative only
-    }
-    else if(total_encoder[1] <= 500)
-    {
-        motor.motor_2 = (motor.motor_2 > 0) ? motor.motor_2 : 0;  //--- Positive only
-    }
+    // if(total_encoder[1] >= 1600)  
+    // {
+    //     motor.motor_2 = (motor.motor_2 < 0) ? motor.motor_2 : 0;  //--- Negative only
+    // }
+    // else if(total_encoder[1] <= 500)
+    // {
+    //     motor.motor_2 = (motor.motor_2 > 0) ? motor.motor_2 : 0;  //--- Positive only
+    // }
 
-        ROS_INFO_STREAM( "\n" <<
-        "Setpoint: " << param_rotation.setpoint << "\n"
-        "Feedback: " << param_rotation.feedback << "\n"
-        "Error: " << arm_rotation.getError() << "\n"
-        "Output: " << arm_rotation.getOutput() << "\n"
-        "Total encoder: " << total_encoder[0];
-    );
+    //     ROS_INFO_STREAM( "\n" <<
+    //     "Setpoint: " << param_rotation.setpoint << "\n"
+    //     "Feedback: " << param_rotation.feedback << "\n"
+    //     "Error: " << arm_rotation.getError() << "\n"
+    //     "Output: " << arm_rotation.getOutput() << "\n"
+    //     "Total encoder: " << total_encoder[0];
+    // );
                                         
     // ROS_INFO_STREAM( "\n" <<
     //     "Setpoint: " << param_horizontal.setpoint << "\n"

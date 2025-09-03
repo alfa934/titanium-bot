@@ -1,0 +1,15 @@
+float32 kp
+float32 ki
+float32 kd
+float32 proportional
+float32 integral
+float32 derivative
+float32 error
+float32 prev_error
+float32 setpoint
+float32 feedback
+float32 max_output
+float32 max_windup
+float32 output
+float32 tolerance
+bool resetPID

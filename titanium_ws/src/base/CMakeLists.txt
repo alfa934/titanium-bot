@@ -160,6 +160,12 @@ target_link_libraries(odometry
 )
 add_dependencies(odometry ${catkin_EXPORTED_TARGETS})
 
+add_executable(manual_base src/manual_base.cpp)
+target_link_libraries(manual_base
+  ${catkin_LIBRARIES}
+)
+add_dependencies(manual_base ${catkin_EXPORTED_TARGETS})
+
 
 #############
 ## Install ##
