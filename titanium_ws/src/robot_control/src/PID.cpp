@@ -44,6 +44,34 @@ float PID::update(float setpoint, float feedback, float dt)
 	return m_output;
 }
 
+float PID::update_rotate(float setpoint, float feedback, float dt)
+{
+    m_setpoint = setpoint;
+    m_feedback = feedback;
+
+    m_error = m_setpoint - m_feedback;
+
+	if(m_error > 180) 			{ m_setpoint -= 360; }
+	else if(m_error < -180) 	{ m_setpoint += 360; }
+    
+	m_error = m_setpoint - m_feedback;
+
+    m_proportional = m_kp * m_error;
+	m_integral    += m_ki * m_error * dt;
+	m_derivative   = m_kd * (m_error - m_prev_error) * dt;
+	m_prev_error   = m_error;
+
+	if(m_integral >= m_max_windup)        { m_integral =   m_max_windup;  }
+	else if(m_integral < -(m_max_windup)) { m_integral = -(m_max_windup); }
+
+	m_output = (m_proportional) + (m_integral) + (m_derivative);
+
+	if(m_output >= m_max_output) 			{ m_output =   m_max_output;  }
+	else if(m_output < -(m_max_output)) 	{ m_output = -(m_max_output); }
+
+	return m_output;
+}
+
 float PID::getKp()
 {
     return m_kp;

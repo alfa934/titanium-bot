@@ -8,10 +8,28 @@
 #include "robot_msgs/pid.h"
 #include "robot_control/PID.hpp"
 
+/*
+ * In the beginning, instead of moving forward blindly, it will use
+ * the ultrasonics for y and w pid. Once it satisfies the threshold,
+ * it will reset the yaw_degree. So that for side to side motion, it
+ * will be based on the MPU. It resets again when the user stops
+ */
 
 #define WALL_LOST_THRESHOLD 20
 #define WALL_DISTANCE_SETPOINT 10
 #define SCANNING_SPEED 2
+
+    int16_t vx = 0;
+    int16_t vy = 0;
+    int16_t vw = 0;
+
+typedef enum
+{
+    MPU_YAW_PID,
+    ULTRASONIC_YAW_PID
+} PID_Type;
+
+PID_Type current_pid = MPU_YAW_PID;
 
 typedef struct 
 {
@@ -23,8 +41,11 @@ typedef struct
     float tolerance;
 } PID_Gains_t;
 
-PID_Gains_t y_gains = {.kp = 0.65, .ki = 0, .kd = 0, .max_windup = 3, .max_output = 3, .tolerance = 2};
-PID_Gains_t w_gains = {.kp = 0.45, .ki = 0, .kd = 1, .max_windup = 5, .max_output = 5, .tolerance = 2};
+PID_Gains_t y_gains = {.kp = 0.5, .ki = 0, .kd = 0.65, .max_windup = 5, .max_output = 5, .tolerance = 5};
+PID_Gains_t w_ultra_gains = {.kp = 0.5, .ki = 0, .kd = 1, .max_windup = 5, .max_output = 5, .tolerance = 2};
+PID_Gains_t w_mpu_gains = {.kp = 0.5, .ki = 0, .kd = 1, .max_windup = 5, .max_output = 5, .tolerance = 2};
+PID_Gains_t w_gains;
+
 
 typedef enum
 {
@@ -52,10 +73,16 @@ robot_msgs::pid pid_debug_y, pid_debug_w;
 PID pid_y(0, 0, 0);
 PID pid_w(0, 0, 0);
 
-int16_t y_feedback = 0;
-float yaw_degree = 0;
-float yaw_radian = 0;
-float yaw_adjust = 0;
+static float yaw_degree = 0;
+static float yaw_radian = 0;
+static float yaw_raw_flip = 0;
+static float yaw_adjust = 0;
+
+int16_t y_setpoint = 0, y_feedback = 0;
+int16_t w_setpoint = 0, w_feedback = 0;
+uint8_t robot_state = 0;
+
+int16_t robot_cnt_10ms = 0;
 
 enum BaseCommand : uint8_t {
     none,
@@ -121,6 +148,11 @@ int8_t Controller_Drift(int8_t value, int8_t max)
 	}
 }
 
+int32_t map(int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 typedef struct {
     int8_t x;
     int8_t y;
@@ -134,11 +166,6 @@ DirectionalMove parseDirectionalMove(robot_msgs::controller c) {
     y = map(y, -128, 127, -25, 25);
     
     return DirectionalMove { .x = x, .y = y };
-}
-
-int32_t map(int32_t x, int32_t in_min, int32_t in_max, int32_t out_min, int32_t out_max)
-{
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
 int16_t Kinematics_Triangle(uint8_t motor, int16_t vx, int16_t vy, int16_t vw)
@@ -170,13 +197,13 @@ void subUltrasonicCallback(const robot_msgs::ultrasonicConstPtr &msg)
 void buttonCallback(const robot_msgs::buttonConstPtr &msg)
 {
     button = *msg;
-    if(msg->startButton == 0)
+    if(msg->startButton)
     {
         robot_system.start = 1;
         robot_system.reset = 0;
     }
 
-    if(msg->resetButton == 0)
+    if(msg->resetButton)
     {
         robot_system.reset = 1;
         robot_system.start = 0;
@@ -235,26 +262,26 @@ void yaw_process()
 {
 	static uint8_t offset_once = 0;
 
-	yaw_degree = flip_yaw(yaw.degree);
+	yaw_raw_flip = flip_yaw(yaw.degree);
 
-	if(yaw_degree > 180.001)
+	if(yaw_raw_flip > 180.001)
 	{
-		yaw_degree -= 360.001;
+		yaw_raw_flip -= 360.001;
 	}
-	else if(yaw_degree < -180.001)
+	else if(yaw_raw_flip < -180.001)
 	{
-		yaw_degree += 360.001;
+        yaw_raw_flip += 360.001;
 	}
 
 	if(!offset_once)
 	{
-		yaw_adjust = yaw_degree;
+		yaw_adjust = yaw_raw_flip;
 		offset_once++;
 	}
 
-	yaw_degree = yaw_degree - yaw_adjust;
+	yaw_degree = yaw_raw_flip - yaw_adjust;
 
-    // ROS_INFO("YAW: %.2f", yaw_degree);
+    ROS_INFO("YAW: %.2f", yaw_degree);
 
 	yaw_radian = yaw_degree * M_PI/180.0;
 }
@@ -298,17 +325,19 @@ void timer10msCallback(const ros::TimerEvent &event)
     yaw_process();
 
     // reset all state first
-    int16_t vx = 0;
-    int16_t vy = 0;
-    int16_t vw = 0;
+    // int16_t vx = 0;
+    // int16_t vy = 0;
+    // int16_t vw = 0;
 
     //--- parse the controller base command
     BaseCommand command = parseBaseCommand(controller);
     DirectionalMove user_move = parseDirectionalMove(controller);
 
     //--- check for input
-    if (command != none) {
-        if (command == switchmode) {
+    if (command != none)
+    {
+        if (command == switchmode)
+        {
             if (robot_control_mode == manual_side && robot_base_state == usercontrol_side)
                 robot_control_mode = auto_scanning;
             else if (robot_control_mode == auto_scanning && robot_base_state == scanning)
@@ -321,88 +350,226 @@ void timer10msCallback(const ros::TimerEvent &event)
     uint16_t ultra_left = ultra.ultra_c;
     uint16_t ultra_right = ultra.ultra_a;
     
-    //--- execute current action
-    switch (robot_base_state)
-    {
-        case wait_start:
-            if (robot_system.start)
-                robot_base_state = homing;
-            break;
+    // //--- execute current action
+    // switch (robot_base_state)
+    // {
+    //     case wait_start:
+    //         if (robot_system.start)
+    //             robot_base_state = homing;
+    //         break;
 
-        // initial homing
-        case homing:
-            // TODO: ADD HOMING PID
+    //     // initial homing
+    //     case homing:
+    //         // TODO: ADD HOMING PID
 
-            //--- move forward
-            vx = 0;
-            vy = 2;
+    //         //--- move forward
+    //         vx = 0;
+    //         vy = 2;
             
-            //--- if both ultrasound not lost,
-            //--- go to ultrasound PID adjustment for MPU reset
+    //         //--- if both ultrasound not lost,
+    //         //--- go to ultrasound PID adjustment for MPU reset
 
-            break;
+    //         break;
         
-        case adjustultraPID:
-            //--- adjust ultrasound PID
+    //     case adjustultraPID:
+    //         //--- adjust ultrasound PID
 
-            //--- if ultrasound PID within tolerance, robot ready
-            //--- go to either usercontrol_side or scanning depending on current robot_control_mode
+    //         //--- if ultrasound PID within tolerance, robot ready
+    //         //--- go to either usercontrol_side or scanning depending on current robot_control_mode
 
-            break;
+    //         break;
 
-        case usercontrol_side:
-        {
-            //--- check ultrasound first
-            uint8_t doYPID = maintainDistanceY(ultra_left, ultra_right);
+    //     case usercontrol_side:
+    //     {
+    //         //--- check ultrasound first
+    //         uint8_t doYPID = maintainDistanceY(ultra_left, ultra_right);
 
-            //--- if wall detection fails, do homing
-            if (!doYPID) {
-                robot_base_state = homing;
+    //         //--- if wall detection fails, do homing
+    //         if (!doYPID) {
+    //             robot_base_state = homing;
+    //         }
+    //         //--- if both walls detected, allow any movement
+    //         //--- if only left ultra detected, user can only move left
+    //         //--- if only right ultra detected, user can only move right
+    //         else if (doYPID == 1
+    //                 || doYPID == 2 && user_move.x < 0
+    //                 || doYPID == 3 && user_move.x > 0)
+    //             vx = user_move.x;
+    //             vy = -pid_y.update(WALL_DISTANCE_SETPOINT, y_feedback, 10);
+    //         break;
+    //     }
+
+    //     // scanning
+    //     case scanning:
+    //     {
+    //         // initialize forward / rotation PID
+    //         bool do_scanning = true;
+    //         uint8_t doYPID = maintainDistanceY(ultra_left, ultra_right);
+    //         if (doYPID == 2 && current_direction == MOVING_RIGHT)
+    //             current_direction == MOVING_LEFT;
+    //         else if (doYPID == 3 && current_direction == MOVING_LEFT)
+    //             current_direction == MOVING_RIGHT;
+    //         if (doYPID != 0) {
+    //             if (current_direction == MOVING_RIGHT)
+    //                 vx = SCANNING_SPEED;
+    //             else
+    //                 vx = -SCANNING_SPEED;
+    //             vy = -pid_y.update(WALL_DISTANCE_SETPOINT, y_feedback, 10);
+    //         }
+    //         // go to homing
+    //         else
+    //         {
+    //             robot_base_state = homing;
+    //         }
+    //         break;
+    //     }
+    //     default:
+    //         break;
+    // }
+
+
+
+    switch (robot_state)
+    {
+        case 0: //--- wait for start
+            yaw_adjust = yaw_raw_flip; // makes sure yaw is at 0
+            if(robot_system.start)
+            {
+                robot_state++;
             }
-            //--- if both walls detected, allow any movement
-            //--- if only left ultra detected, user can only move left
-            //--- if only right ultra detected, user can only move right
-            else if (doYPID == 1
-                    || doYPID == 2 && user_move.x < 0
-                    || doYPID == 3 && user_move.x > 0)
-                vx = user_move.x;
-                vy = -pid_y.update(WALL_DISTANCE_SETPOINT, y_feedback, 10);
             break;
-        }
+        case 1: // go to front of conveyor and adjust orientation (all with ultrasonic pid)
+            vx = 0;
+            current_pid = ULTRASONIC_YAW_PID;
 
-        // scanning
-        case scanning:
+            y_setpoint = WALL_DISTANCE_SETPOINT;
+            y_feedback = (ultra_left + ultra_right) / 2.0f;
+            pid_y.setGains(y_gains.kp, y_gains.ki, y_gains.kd);
+            pid_y.setMaxOutput(y_gains.max_output);
+            pid_y.setMaxWindup(y_gains.max_windup);
+            vy = -pid_y.update(y_setpoint, y_feedback, 10);
+
+            // once done, switch to MPU pid
+            if(abs(pid_y.getError()) <= y_gains.tolerance && abs(pid_w.getError()) <= w_gains.tolerance)
+            {
+                if(robot_cnt_10ms >= 150)
+                {
+                    current_pid = MPU_YAW_PID;
+                    yaw_adjust = yaw_raw_flip;
+                    robot_state++;
+                    robot_cnt_10ms = 0;
+                }
+                robot_cnt_10ms++;;
+            }
+            break;
+        case 2:
+            //-- hold distance (since it's not always on)
+            y_setpoint = WALL_DISTANCE_SETPOINT;
+            y_feedback = (ultra_left + ultra_right) / 2.0f;
+            pid_y.setGains(y_gains.kp, y_gains.ki, y_gains.kd);
+            pid_y.setMaxOutput(y_gains.max_output);
+            pid_y.setMaxWindup(y_gains.max_windup);
+            vy = -pid_y.update(y_setpoint, y_feedback, 10);
+
+            //--- add different buttons for auto/manual (currently this is just a test for auto)
+            if(button.button1) //--- this should be Circle button since it moves side-side
+            {
+                robot_state++;
+            }
+            break;
+        case 3:
         {
-            // initialize forward / rotation PID
-            bool do_scanning = true;
-            uint8_t doYPID = maintainDistanceY(ultra_left, ultra_right);
-            if (doYPID == 2 && current_direction == MOVING_RIGHT)
-                current_direction == MOVING_LEFT;
-            else if (doYPID == 3 && current_direction == MOVING_LEFT)
-                current_direction == MOVING_RIGHT;
-            if (doYPID != 0) {
-                if (current_direction == MOVING_RIGHT)
+            if(button.button2) //--- this should be X button since it does the homing WHILE the arm takes something
+            {
+                robot_state = 1;
+            }
+
+            bool doPID = true;
+
+            uint8_t left_lost = (ultra_left >= WALL_LOST_THRESHOLD);
+            uint8_t right_lost = (ultra_right >= WALL_LOST_THRESHOLD);
+
+            if (!left_lost && !right_lost)
+            {
+                y_feedback = (ultra_left + ultra_right) / 2.0f;
+            }
+            else if (!left_lost && right_lost)
+            {
+                y_feedback = ultra_left;
+                
+                if(current_direction == MOVING_RIGHT) //-- change direction
+                {
+                    current_direction = MOVING_LEFT;
+                }
+            }
+            else if (left_lost && !right_lost)
+            {
+                y_feedback = ultra_right;
+                if(current_direction == MOVING_LEFT) //-- change direction
+                {
+                    current_direction = MOVING_RIGHT;
+                }
+            } 
+            else
+            {
+                doPID = false;
+            }
+
+            if(doPID)
+            {
+                pid_y.setGains(y_gains.kp, y_gains.ki, y_gains.kd);
+                pid_y.setMaxOutput(y_gains.max_output);
+                pid_y.setMaxWindup(y_gains.max_windup);
+                if(current_direction == MOVING_RIGHT)
+                {
                     vx = SCANNING_SPEED;
+                }
                 else
+                {
                     vx = -SCANNING_SPEED;
+                }
                 vy = -pid_y.update(WALL_DISTANCE_SETPOINT, y_feedback, 10);
             }
-            // go to homing
-            else {
-                robot_base_state = homing;
+            else
+            {
+                //----- I AM NOT SURE ABOUT THIS, I THINK ITS BETTER TO GO TO STATE 1
+                robot_state = 1;
+                // vx = 0;
+                // vy = 2;
             }
+        }    
             break;
-        }
+
         default:
             break;
     }
 
-    pid_w.setGains(w_gains.kp, w_gains.ki, w_gains.kd);
-    pid_w.setMaxOutput(w_gains.max_output);
-    pid_w.setMaxWindup(w_gains.max_windup);
-    vw = pid_w.update(-1, yaw_degree, 10);
+    if(robot_system.start)
+        switch(current_pid)
+        {
+            case MPU_YAW_PID:
+                w_setpoint = 0;
+                w_feedback = yaw_degree;
+                memcpy(&w_gains, &w_mpu_gains, sizeof(PID_Gains_t));
+                pid_w.setGains(w_gains.kp, w_gains.ki, w_gains.kd);
+                pid_w.setMaxOutput(w_gains.max_output);
+                pid_w.setMaxWindup(w_gains.max_windup);
+                vw = pid_w.update_rotate(w_setpoint, w_feedback, 10);
+                break;
 
-    // ROS_INFO("VX, VY, VW: %d, %d, %d", vx, vy, vw);
+            case ULTRASONIC_YAW_PID:
+                w_setpoint = 0;
+                w_feedback = ultra_left - ultra_right;
+                memcpy(&w_gains, &w_ultra_gains, sizeof(PID_Gains_t));
+                pid_w.setGains(w_gains.kp, w_gains.ki, w_gains.kd);
+                pid_w.setMaxOutput(w_gains.max_output);
+                pid_w.setMaxWindup(w_gains.max_windup);
+                vw = pid_w.update(w_setpoint, w_feedback, 10);
+                break;
+        }
+
+
+    ROS_INFO("VX, VY, VW: %d, %d, %d", vx, vy, vw);
 
     debugPID();
 

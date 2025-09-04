@@ -24,6 +24,7 @@ public:
     ~PID();
 
     float update(float setpoint, float feedback, float dt);
+    float update_rotate(float setpoint, float feedback, float dt);
     
     float getKp();
     float getKi();

@@ -84,6 +84,14 @@ void udpReadCallback(const ros::TimerEvent &event)
         memcpy(&button.button4, rx_buffer + 38, 1);
         memcpy(&button.button5, rx_buffer + 39, 1);
 
+        button.startButton = !button.startButton;
+        button.resetButton = !button.resetButton;
+        button.button1 = !button.button1;
+        button.button2 = !button.button2;
+        button.button3 = !button.button3;
+        button.button4 = !button.button4;
+        button.button5 = !button.button5;
+
         // if(button.resetButton == 0)
         // {
         //     robot_system.reset = 1;
