@@ -111,10 +111,10 @@ void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const
 //	memcpy(&udp_rx.vertical_setpoint, udp_rx_buffer + 15, 2);
 //	memcpy(&udp_rx.relay_state, udp_rx_buffer + 17, 1);
 
-	for(int i = 0; i < 10; i++)
-	{
-		memcpy(&udp_rx.indicator[i], udp_rx_buffer + 18 + i, 1);
-	}
+//	for(int i = 0; i < 10; i++)
+//	{
+//		memcpy(&udp_rx.indicator[i], udp_rx_buffer + 18 + i, 1);
+//	}
 
 	pbuf_free(p);
 }
