@@ -126,12 +126,12 @@ void encoderCallback(const robot_msgs::encoderConstPtr &msg)
 void buttonCallback(const robot_msgs::buttonConstPtr &msg)
 {
     button = *msg;
-    if(msg->startButton == 0)
+    if(msg->startButton)
     {
         robot_system.start = 1;
     }
 
-    if(msg->resetButton == 0)
+    if(msg->resetButton)
     {
         robot_system.reset = 1;
     }

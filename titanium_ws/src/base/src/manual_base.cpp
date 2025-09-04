@@ -200,13 +200,13 @@ void buttonCallback(const robot_msgs::buttonConstPtr &msg)
     if(msg->startButton)
     {
         robot_system.start = 1;
-        robot_system.reset = 0;
+        // robot_system.reset = 0;
     }
 
     if(msg->resetButton)
     {
-        robot_system.reset = 1;
-        robot_system.start = 0;
+        // robot_system.reset = 1;
+        // robot_system.start = 0;
     }
 }
 
@@ -472,22 +472,23 @@ void timer10msCallback(const ros::TimerEvent &event)
             vy = -pid_y.update(y_setpoint, y_feedback, 10);
 
             //--- add different buttons for auto/manual (currently this is just a test for auto)
-            if(button.button1) //--- this should be Circle button since it moves side-side
+            if(controller.cir) //--- this should be Circle button since it moves side-side
             {
                 robot_state++;
             }
             break;
         case 3:
         {
-            if(button.button2) //--- this should be X button since it does the homing WHILE the arm takes something
-            {
-                robot_state = 1;
-            }
 
             bool doPID = true;
 
             uint8_t left_lost = (ultra_left >= WALL_LOST_THRESHOLD);
             uint8_t right_lost = (ultra_right >= WALL_LOST_THRESHOLD);
+
+            if((!left_lost && !right_lost) && controller.crs) //--- this should be X button since it does the homing WHILE the arm takes something
+            {
+                robot_state = 1;
+            }
 
             if (!left_lost && !right_lost)
             {
