@@ -7,6 +7,7 @@
 #include "robot_msgs/robot_system.h"
 #include "robot_control/PID.hpp"
 #include "robot_msgs/camera.h"
+#include "robot_msgs/ultrasonic.h"
 #include "robot_msgs/controller.h"
 
 
@@ -35,7 +36,7 @@ PID_Gains_t hor_gain_pid;
 PID_Gains_t ver_gain_pid;
 
 ros::Publisher pub_rotation, pub_horizontal, pub_vertical, pub_system, pub_relay;
-ros::Subscriber sub_encoder, sub_button, sub_limit, sub_camera, sub_controller;
+ros::Subscriber sub_encoder, sub_button, sub_limit, sub_camera, sub_controller, sub_ultra;
 ros::Timer tim_1kHz, tim_100Hz;
 
 robot_msgs::encoder feedback;
@@ -46,6 +47,7 @@ robot_msgs::motor relay;
 robot_msgs::camera camera;
 robot_msgs::button button;
 robot_msgs::controller controller;
+robot_msgs::ultrasonic ultra;
 
 enum ArmCommand : uint8_t {
     none,
@@ -121,6 +123,11 @@ void setPID(robot_msgs::pid &pid_msg, PID_Gains_t *gain, float setpoint, float f
 void encoderCallback(const robot_msgs::encoderConstPtr &msg)
 {
     feedback = *msg;
+}
+
+void subUltrasonicCallback(const robot_msgs::ultrasonicConstPtr &msg)
+{
+    ultra = *msg;
 }
 
 void buttonCallback(const robot_msgs::buttonConstPtr &msg)
@@ -244,7 +251,11 @@ void timer1msCallback(const ros::TimerEvent &event)
                 robot_arm_state = ready;
             }
             break;
-        case pick_search: //---- SEARCH MODE
+        case pick_search: //---- SEARCH MODE   
+            if(ultra.ultra_a >= 20 || ultra.ultra_c >= 20)
+            {
+                robot_arm_state = init_vert;
+            }
             memcpy(&rot_gain_pid, &rot_cam_pid, sizeof(PID_Gains_t));
             memcpy(&hor_gain_pid, &hor_cam_pid, sizeof(PID_Gains_t));
             memcpy(&ver_gain_pid, &ver_enc_pid, sizeof(PID_Gains_t));
@@ -410,6 +421,8 @@ int main(int argc, char **argv)
     sub_limit = nh.subscribe("/sensor/limit_switch", 10, limitCallback);
     sub_camera = nh.subscribe("/sensor/camera", 10, subCameraCallback);
     sub_controller = nh.subscribe("/input/controller", 10, subControllerCallback);
+    sub_ultra = nh.subscribe("/sensor/ultrasonic", 10, subUltrasonicCallback);
+
     tim_1kHz = nh.createTimer(ros::Duration(0.001), timer1msCallback);
     tim_100Hz = nh.createTimer(ros::Duration(0.01), timer10msCallback);
 
