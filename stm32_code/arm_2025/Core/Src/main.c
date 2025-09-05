@@ -110,6 +110,8 @@ static void MX_TIM6_Init(void);
 #define MAX_HORIZONTAL_PID_SPEED	999
 #define MAX_ROTATION_PID_SPEED		999
 
+int16_t rst_cnt = 0;
+uint8_t rst_state = 0;
 
 int16_t TIM6_CNT_MS = 0;
 int16_t enc1_cnt = 0;
@@ -188,7 +190,7 @@ uint8_t arm_init()
 		setMotor(2, 0);
 	}
 
-	if(LIM_SW3_STAT == 1)
+	if(LIM_SW2_STAT == 0 && LIM_SW3_STAT == 1)
 	{
 		setMotor(3, MAX_VERTICAL_HOME_SPEED); //--- go down
 	}
@@ -314,9 +316,16 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if(htim == &htim6)
 	{
-		if(robot_reset)
+		if(rst_state)
 		{
-			NVIC_SystemReset();
+			if(rst_cnt >= 500)
+			{
+				NVIC_SystemReset();
+			}
+			else
+			{
+				rst_cnt++;
+			}
 		}
 
 		led_blink();
@@ -346,6 +355,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			memcpy(&setpoint_rotation, UART1_RX_BUFFER + 6, 2);
 			memcpy(&setpoint_horizontal, UART1_RX_BUFFER + 8, 2);
 			memcpy(&setpoint_vertical, UART1_RX_BUFFER + 10, 2);
+
+			if(robot_reset == 1)
+			{
+				rst_state = 1;
+			}
 		}
 		HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
 	}

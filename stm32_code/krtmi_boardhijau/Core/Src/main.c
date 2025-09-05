@@ -65,6 +65,8 @@ void SystemClock_Config(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 uint8_t udp_cnt = 0;
+uint8_t rst_state = 0;
+int16_t rst_cnt = 0;
 
 Motor_t motorA;
 Motor_t motorB;
@@ -313,7 +315,7 @@ void Robot_Transmit_UART()
 {
 	//--- VGT ARM
 	memcpy(UART1_TX_BUFFER + 3, &udp_rx.robot_start, 1);
-	memcpy(UART1_TX_BUFFER + 4, &udp_rx.robot_reset, 1);
+	memcpy(UART1_TX_BUFFER + 4, &rst_state, 1);
 	memcpy(UART1_TX_BUFFER + 5, &udp_rx.relay_state, 1);
 	memcpy(UART1_TX_BUFFER + 6, &udp_rx.rotation_setpoint, 2);
 	memcpy(UART1_TX_BUFFER + 8, &udp_rx.horizontal_setpoint, 2);
@@ -329,13 +331,25 @@ void Read_Buttons()
 	udp_tx.buttons[0] = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_4);
 	udp_tx.buttons[1] = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_7);
 	udp_tx.buttons[2] = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3);
+
+	if(udp_tx.reset_button == 0)
+	{
+		rst_state = 1;
+	}
 }
 
 void Robot_Loop()
 {
-	if(udp_rx.robot_reset)
+	if(rst_state)
 	{
-		NVIC_SystemReset();
+		if(rst_cnt >= 500)
+		{
+			NVIC_SystemReset();
+		}
+		else
+		{
+			rst_cnt++;
+		}
 	}
 
 	Read_Buttons();
