@@ -166,10 +166,12 @@ void subButtonCallback(const robot_msgs::buttonConstPtr &msg)
     if(msg->start)
     {
         robot_system.start = 1;
+        robot_system.reset = 0;
     }
 
     if(msg->reset)
     {
+        robot_system.start = 0;
         robot_system.reset = 1;
     }
 

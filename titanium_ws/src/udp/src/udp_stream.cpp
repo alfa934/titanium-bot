@@ -86,7 +86,7 @@ void timeoutCallback()
 void udpReadCallback(const ros::TimerEvent &event)
 {
     time_now = ros::Time::now();
-    ROS_INFO("dt: %.5f", (time_now - last_time).toSec());
+    // ROS_INFO("dt: %.5f", (time_now - last_time).toSec());
     last_time = time_now;
 
     timeoutCallback();

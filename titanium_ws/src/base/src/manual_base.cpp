@@ -10,9 +10,8 @@
 #include "std_msgs/Bool.h"
 #include <cmath>
 
-// Add this function to calculate safe dt values
-float calculate_safe_dt(float dt) {
-    // Ensure dt is at least 1ms to prevent division by zero
+float calculate_safe_dt(float dt)
+{
     return std::max(dt, 0.001f);
 }
 
@@ -51,7 +50,7 @@ static float yaw_radian = 0;
 static float yaw_raw_flip = 0;
 static float yaw_adjust = 0;
 
-float w_setpoint = 0;  // Changed from int16_t to float for better precision
+float w_setpoint = 0;
 float w_feedback = 0;
 uint8_t robot_state = 0;
 
