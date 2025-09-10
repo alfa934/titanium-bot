@@ -29,7 +29,7 @@ typedef struct
 PID_Gains_t rot_enc_pid = {.kp = 0.04, .ki = 0, .kd = 0.01, .max_windup = 5, .max_output = 5, .tolerance = 25};
 PID_Gains_t hor_enc_pid = {.kp = 0.06, .ki = 0, .kd = 0, .max_windup = 10, .max_output = 10, .tolerance = 25};
 PID_Gains_t ver_enc_pid = {.kp = 0.04, .ki = 0, .kd = 0, .max_windup = 50, .max_output = 50, .tolerance = 25};
-PID_Gains_t rot_cam_pid = {.kp = 0.04, .ki = 0, .kd = 0, .max_windup = 10, .max_output = 1, .tolerance = 15};
+PID_Gains_t rot_cam_pid = {.kp = 0.04, .ki = 0, .kd = 0, .max_windup = 1, .max_output = 1, .tolerance = 15};
 PID_Gains_t hor_cam_pid = {.kp = 0.06, .ki = 0, .kd = 0, .max_windup = 10, .max_output = 10, .tolerance = 15};
 PID_Gains_t rot_gain_pid;
 PID_Gains_t hor_gain_pid;
@@ -133,12 +133,12 @@ void subUltrasonicCallback(const robot_msgs::ultrasonicConstPtr &msg)
 void buttonCallback(const robot_msgs::buttonConstPtr &msg)
 {
     button = *msg;
-    if(msg->startButton)
+    if(msg->start)
     {
         robot_system.start = 1;
     }
 
-    if(msg->resetButton)
+    if(msg->reset)
     {
         robot_system.reset = 1;
     }
@@ -252,10 +252,10 @@ void timer1msCallback(const ros::TimerEvent &event)
             }
             break;
         case pick_search: //---- SEARCH MODE   
-            if(ultra.ultra_a >= 20 || ultra.ultra_c >= 20)
-            {
-                robot_arm_state = init_vert;
-            }
+            // if(ultra.ultra_a >= 20 || ultra.ultra_c >= 20)
+            // {
+            //     robot_arm_state = init_vert;
+            // }
             memcpy(&rot_gain_pid, &rot_cam_pid, sizeof(PID_Gains_t));
             memcpy(&hor_gain_pid, &hor_cam_pid, sizeof(PID_Gains_t));
             memcpy(&ver_gain_pid, &ver_enc_pid, sizeof(PID_Gains_t));
@@ -265,6 +265,7 @@ void timer1msCallback(const ros::TimerEvent &event)
 
             if(camera.trashDetected)
             {
+                rot_gain_pid.max_output = rot_gain_pid.max_windup = 0;
                 rotation_setpoint = 40;
                 horizontal_setpoint = 40;
                 rotation_feedback = camera.closestTrashX;
@@ -280,7 +281,7 @@ void timer1msCallback(const ros::TimerEvent &event)
             {
                 rot_gain_pid.max_output = rot_gain_pid.max_windup = 0;
                 hor_gain_pid.max_output = hor_gain_pid.max_windup = 0;
-                robot_arm_state = pick_down;
+                // robot_arm_state = pick_down;
             }
 
             break;
@@ -373,16 +374,6 @@ void timer1msCallback(const ros::TimerEvent &event)
             }
           
             break;
-        // case 9:
-        //     rot_gain_pid.max_output = rot_gain_pid.max_windup = 0;
-        //     hor_gain_pid.max_output = hor_gain_pid.max_windup = 0;
-        //     ver_gain_pid.max_output = ver_gain_pid.max_windup = 0;
-        //     if(button.startButton == 0)
-        //     {
-        //         robot_state = 1;
-        //     }
-        //     break;
-
     }
 
     setPID(rotation_param, &rot_gain_pid, rotation_setpoint, rotation_feedback);

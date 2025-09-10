@@ -168,6 +168,10 @@ add_executable(pid_arm_test src/pid_arm_test.cpp)
 target_link_libraries(pid_arm_test ${catkin_LIBRARIES})
 add_dependencies(pid_arm_test ${catkin_EXPORTED_TARGETS})
 
+add_executable(arm_node src/arm_node.cpp)
+target_link_libraries(arm_node ${catkin_LIBRARIES})
+add_dependencies(arm_node ${catkin_EXPORTED_TARGETS})
+
 
 #############
 ## Install ##

@@ -48,8 +48,49 @@ ros::Publisher  pub_encoder, pub_limit, pub_ultra, pub_yaw,
 
 ros::Subscriber sub_motor_base, sub_motor_arm, sub_relay, sub_robot_system, sub_indicator;
 
+ros::Time last_time, time_now;
+
+void timeoutCallback()
+{
+    if((ros::Time::now() - last_base_time).toSec() > TIMEOUT)
+    {
+        motor_arm.motor_a = 0;
+        motor_arm.motor_b = 0;
+        motor_arm.motor_c = 0;
+    }
+    if((ros::Time::now() - last_arm_time).toSec() > TIMEOUT)
+    {
+        motor_arm.motor_1 = 0;
+        motor_arm.motor_2 = 0;
+        motor_arm.motor_3 = 0;
+    }
+    if((ros::Time::now() - last_relay_time).toSec() > TIMEOUT)
+    {
+        motor_arm.relay_state = 0;
+    }
+    if((ros::Time::now() - last_system_time).toSec() > TIMEOUT)
+    {
+        robot_system.reset = 0;
+        robot_system.start = 0;
+    }
+    if((ros::Time::now() - last_indicator_time).toSec() > TIMEOUT)
+    {
+        for(int i = 0; i < 10; i++)
+        {
+            indicator.indicator[i] = 0;
+        }
+        
+    }
+}
+
 void udpReadCallback(const ros::TimerEvent &event)
 {
+    time_now = ros::Time::now();
+    ROS_INFO("dt: %.5f", (time_now - last_time).toSec());
+    last_time = time_now;
+
+    timeoutCallback();
+    
 	socklen_t len = sizeof(cliaddr);
 	int bytes_captured = recvfrom(sockfd, rx_buffer, BUFF_SIZE, MSG_DONTWAIT, 
 						 (struct sockaddr *)&cliaddr, &len);
@@ -76,21 +117,21 @@ void udpReadCallback(const ros::TimerEvent &event)
         memcpy(&limit_switch.lim_2, rx_buffer + 31, 1);
         memcpy(&limit_switch.lim_3, rx_buffer + 32, 1);
 
-        memcpy(&button.startButton, rx_buffer + 33, 1);
-        memcpy(&button.resetButton, rx_buffer + 34, 1);
-        memcpy(&button.button1, rx_buffer + 35, 1);
-        memcpy(&button.button2, rx_buffer + 36, 1);
-        memcpy(&button.button3, rx_buffer + 37, 1);
-        memcpy(&button.button4, rx_buffer + 38, 1);
-        memcpy(&button.button5, rx_buffer + 39, 1);
+        memcpy(&button.start, rx_buffer + 33, 1);
+        memcpy(&button.reset, rx_buffer + 34, 1);
+        memcpy(&button.b1, rx_buffer + 35, 1);
+        memcpy(&button.b2, rx_buffer + 36, 1);
+        memcpy(&button.b3, rx_buffer + 37, 1);
+        memcpy(&button.b4, rx_buffer + 38, 1);
+        memcpy(&button.b5, rx_buffer + 39, 1);
 
-        button.startButton = !button.startButton;
-        button.resetButton = !button.resetButton;
-        button.button1 = !button.button1;
-        button.button2 = !button.button2;
-        button.button3 = !button.button3;
-        button.button4 = !button.button4;
-        button.button5 = !button.button5;
+        button.start = !button.start;
+        button.reset= !button.reset;
+        button.b1 = !button.b1;
+        button.b2 = !button.b2;
+        button.b3 = !button.b3;
+        button.b4 = !button.b4;
+        button.b5 = !button.b5;
 
         // if(button.resetButton == 0)
         // {
@@ -161,39 +202,6 @@ void udpWriteCallback(const ros::TimerEvent &event)
     socklen_t len = sizeof(cliaddr);
 	sendto(sockfd, tx_buffer, sizeof(tx_buffer), MSG_CONFIRM,
 			(const struct sockaddr *) &cliaddr, len); 
-}
-
-void timeoutCallback(const ros::TimerEvent& event)
-{
-    if((ros::Time::now() - last_base_time).toSec() > TIMEOUT)
-    {
-        motor_arm.motor_a = 0;
-        motor_arm.motor_b = 0;
-        motor_arm.motor_c = 0;
-    }
-    if((ros::Time::now() - last_arm_time).toSec() > TIMEOUT)
-    {
-        motor_arm.motor_1 = 0;
-        motor_arm.motor_2 = 0;
-        motor_arm.motor_3 = 0;
-    }
-    if((ros::Time::now() - last_relay_time).toSec() > TIMEOUT)
-    {
-        motor_arm.relay_state = 0;
-    }
-    if((ros::Time::now() - last_system_time).toSec() > TIMEOUT)
-    {
-        robot_system.reset = 0;
-        robot_system.start = 0;
-    }
-    if((ros::Time::now() - last_indicator_time).toSec() > TIMEOUT)
-    {
-        for(int i = 0; i < 10; i++)
-        {
-            indicator.indicator[i] = 0;
-        }
-        
-    }
 }
 
 void motorBaseCallback(const robot_msgs::motorConstPtr &msg)
@@ -279,11 +287,14 @@ int main(int argc, char **argv)
 
     timer_udpRead = nh.createTimer(ros::Duration(0.001), udpReadCallback);
     timer_udpWrite = nh.createTimer(ros::Duration(0.001), udpWriteCallback);
-    timer_timeout = nh.createTimer(ros::Duration(0.001), timeoutCallback);
+
+    last_time = ros::Time::now();
     
     spinner.start();
 
     ros::waitForShutdown();
+
+    spinner.stop();
 
     close(sockfd);
 

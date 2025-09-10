@@ -30,7 +30,7 @@ float PID::update(float setpoint, float feedback, float dt)
 
     m_proportional = m_kp * m_error;
 	m_integral    += m_ki * m_error * dt;
-	m_derivative   = m_kd * (m_error - m_prev_error) * dt;
+	m_derivative   = m_kd * (m_error - m_prev_error) / dt;
 	m_prev_error   = m_error;
 
 	if(m_integral >= m_max_windup)        { m_integral =   m_max_windup;  }
@@ -49,17 +49,21 @@ float PID::update_rotate(float setpoint, float feedback, float dt)
     m_setpoint = setpoint;
     m_feedback = feedback;
 
-    m_error = m_setpoint - m_feedback;
-
-	if(m_error > 180) 			{ m_setpoint -= 360; }
-	else if(m_error < -180) 	{ m_setpoint += 360; }
+    m_error = setpoint - feedback;
+    m_error = fmodf(m_error + 180.0f, 360.0f);
+    if (m_error < 0) m_error += 360.0f;
+    m_error -= 180.0f;
     
-	m_error = m_setpoint - m_feedback;
-
     m_proportional = m_kp * m_error;
-	m_integral    += m_ki * m_error * dt;
-	m_derivative   = m_kd * (m_error - m_prev_error) * dt;
-	m_prev_error   = m_error;
+    m_integral    += m_ki * m_error * dt;
+    
+    float error_diff = m_error - m_prev_error;
+    error_diff = fmodf(error_diff + 180.0f, 360.0f);
+    if (error_diff < 0) error_diff += 360.0f;
+    error_diff -= 180.0f;
+    m_derivative = m_kd * error_diff / dt;
+    
+    m_prev_error = m_error;
 
 	if(m_integral >= m_max_windup)        { m_integral =   m_max_windup;  }
 	else if(m_integral < -(m_max_windup)) { m_integral = -(m_max_windup); }

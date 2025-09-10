@@ -166,6 +166,11 @@ target_link_libraries(manual_base
 )
 add_dependencies(manual_base ${catkin_EXPORTED_TARGETS})
 
+add_executable(auto_base src/auto_base.cpp)
+target_link_libraries(auto_base
+  ${catkin_LIBRARIES}
+)
+add_dependencies(auto_base ${catkin_EXPORTED_TARGETS})
 
 #############
 ## Install ##

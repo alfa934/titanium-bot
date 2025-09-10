@@ -171,6 +171,12 @@ target_link_libraries(raw_cam_sub
   ${OpenCV_LIBRARIES}
 )
 
+add_executable(raw_cal_pub src/raw_cal_pub.cpp)
+target_link_libraries(raw_cal_pub
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+)
+
 add_executable(camera_threshold src/camera_threshold.cpp)
 target_link_libraries(camera_threshold
   ${catkin_LIBRARIES}
@@ -190,6 +196,13 @@ target_link_libraries(trash_detection
 )
 add_dependencies(trash_detection ${catkin_EXPORTED_TARGETS})
 
+add_executable(yolo_trash_detection src/yolo_trash_detection.cpp)
+target_link_libraries(yolo_trash_detection
+  ${catkin_LIBRARIES}
+  ${OpenCV_LIBRARIES}
+)
+add_dependencies(yolo_trash_detection ${catkin_EXPORTED_TARGETS})
+
 #############
 ## Install ##
 #############
@@ -197,12 +210,13 @@ add_dependencies(trash_detection ${catkin_EXPORTED_TARGETS})
 # all install targets should use catkin DESTINATION variables
 # See http://ros.org/doc/api/catkin/html/adv_user_guide/variables.html
 
-## Mark executable scripts (Python etc.) for installation
-## in contrast to setup.py, you can choose the destination
-# catkin_install_python(PROGRAMS
-#   scripts/my_python_script
-#   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+# Mark executable scripts (Python etc.) for installation
+# in contrast to setup.py, you can choose the destination
+catkin_install_python(PROGRAMS
+  scripts/trash_detection.py
+
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark executables for installation
 ## See http://docs.ros.org/melodic/api/catkin/html/howto/format1/building_executables.html

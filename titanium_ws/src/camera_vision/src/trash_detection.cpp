@@ -15,7 +15,7 @@
 
 bool show_display = false;
 
-const int low_H = 90, low_S = 150, low_V = 60;
+const int low_H = 80, low_S = 100, low_V = 40;
 const int high_H = 180, high_S = 255, high_V = 255;
 
 #define CAMERA_CENTER_X 320
