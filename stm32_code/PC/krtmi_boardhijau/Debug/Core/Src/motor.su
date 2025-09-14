@@ -1,0 +1,8 @@
+../Core/Src/motor.c:13:6:Motor_Init	24	static
+../Core/Src/motor.c:33:6:Motor_Run	24	static
+../Core/Src/motor.c:69:6:Encoder_Init	24	static
+../Core/Src/motor.c:80:6:Encoder_GetCount	16	static
+../Core/Src/motor.c:95:6:Encoder_ResetCount	16	static
+../Core/Src/motor.c:103:9:Kinematics_Triangle	24	static
+../Core/Src/motor.c:124:9:Kinematics_Mecanum	16	static
+../Core/Src/motor.c:146:9:Kinematics_Omni	16	static
