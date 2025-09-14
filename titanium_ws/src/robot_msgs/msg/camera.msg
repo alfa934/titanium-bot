@@ -1,4 +1,5 @@
 bool trashDetected
+uint8 trashType
 int16 cameraCenterX
 int16 cameraCenterY
 int16 closestTrashX

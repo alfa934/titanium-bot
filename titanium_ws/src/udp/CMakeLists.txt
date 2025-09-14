@@ -157,6 +157,12 @@ target_link_libraries(udp_stream
 )
 add_dependencies(udp_stream ${catkin_EXPORTED_TARGETS})
 
+add_executable(udp_cam src/udp_cam.cpp)
+target_link_libraries(udp_cam
+  ${catkin_LIBRARIES}
+)
+add_dependencies(udp_cam ${catkin_EXPORTED_TARGETS})
+
 
 #############
 ## Install ##

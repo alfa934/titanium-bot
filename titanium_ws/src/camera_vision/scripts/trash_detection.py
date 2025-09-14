@@ -72,6 +72,7 @@ class TrashDetector:
         results = self.model.predict(frame, conf=self.confidence_threshold, verbose=False)
 
         detected_trash = False
+        trash_type = 0
         closest_trash_x = 0
         closest_trash_y = 0
         closest_bbox = [0, 0, 0, 0]
@@ -103,6 +104,19 @@ class TrashDetector:
                         closest_trash_y = cy
                         closest_bbox = [cords[0], cords[1], cords[2], cords[3]]
                         closest_centroid = [cx, cy]
+                    
+                    if class_id == "daun":
+                        trash_type = 1
+                    elif class_id == "ferro":
+                        trash_type = 2
+                    elif class_id == "kertas":
+                        trash_type = 3
+                    elif class_id == "nonferro":
+                        trash_type = 4
+                    elif class_id == "plastik":
+                        trash_type = 5
+                    else:
+                        trash_type = 0
 
                     # Draw on display frame if enabled
                     if self.display:
@@ -183,16 +197,17 @@ class TrashDetector:
                 cv2.putText(display_frame, "No trash detected!", (20, 40),
                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
-        return display_frame, detected_trash, closest_trash_x, closest_trash_y, closest_bbox, closest_centroid
+        return display_frame, detected_trash, trash_type, closest_trash_x, closest_trash_y, closest_bbox, closest_centroid
 
     def run(self):
         rate = rospy.Rate(30)  # 30 Hz
         
         while not rospy.is_shutdown():
-            display_frame, detected, cx, cy, bbox, centroid = self.infer()
+            display_frame, detected, trash_type, cx, cy, bbox, centroid = self.infer()
             
             # Populate camera message
             self.camera_msg.trashDetected = detected
+            self.camera_msg.trashType = trash_type
             self.camera_msg.cameraCenterX = self.camera_center_x
             self.camera_msg.cameraCenterY = self.camera_center_y
             
