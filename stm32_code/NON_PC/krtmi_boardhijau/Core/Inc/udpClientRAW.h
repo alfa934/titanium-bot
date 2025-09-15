@@ -87,19 +87,25 @@ typedef struct
 
 typedef struct
 {
-	uint8_t robot_start;
-	uint8_t robot_reset;
-
-	int16_t motorA_setpoint;
-	int16_t motorB_setpoint;
-	int16_t motorC_setpoint;
-
-	int16_t rotation_setpoint;
-	int16_t horizontal_setpoint;
-	int16_t vertical_setpoint;
-	uint8_t relay_state;
-
-	uint8_t indicator[10];
+	uint8_t trashDetected;
+	uint8_t trashType;
+	int16_t cameraX;
+	int16_t cameraY;
+	int16_t closestTrashX;
+	int16_t closestTrashY;
+//	uint8_t robot_start;
+//	uint8_t robot_reset;
+//
+//	int16_t motorA_setpoint;
+//	int16_t motorB_setpoint;
+//	int16_t motorC_setpoint;
+//
+//	int16_t rotation_setpoint;
+//	int16_t horizontal_setpoint;
+//	int16_t vertical_setpoint;
+//	uint8_t relay_state;
+//
+//	uint8_t indicator[10];
 
 } udpRx_t ;
 

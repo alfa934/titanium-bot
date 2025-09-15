@@ -101,21 +101,6 @@ void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const
 
 	memcpy(&udp_rx, udp_rx_buffer +  3, sizeof(udpRx_t));
 
-//	memcpy(&udp_rx.robot_start, udp_rx_buffer + 3, 1);
-//	memcpy(&udp_rx.robot_reset, udp_rx_buffer + 4, 1);
-//	memcpy(&udp_rx.motorA_setpoint, udp_rx_buffer + 5, 2);
-//	memcpy(&udp_rx.motorB_setpoint, udp_rx_buffer + 7, 2);
-//	memcpy(&udp_rx.motorC_setpoint, udp_rx_buffer + 9, 2);
-//	memcpy(&udp_rx.rotation_setpoint, udp_rx_buffer + 11, 2);
-//	memcpy(&udp_rx.horizontal_setpoint, udp_rx_buffer + 13, 2);
-//	memcpy(&udp_rx.vertical_setpoint, udp_rx_buffer + 15, 2);
-//	memcpy(&udp_rx.relay_state, udp_rx_buffer + 17, 1);
-
-//	for(int i = 0; i < 10; i++)
-//	{
-//		memcpy(&udp_rx.indicator[i], udp_rx_buffer + 18 + i, 1);
-//	}
-
 	pbuf_free(p);
 }
 

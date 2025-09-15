@@ -282,9 +282,9 @@ void Robot_Motor()
 		Encoder_ResetCount(&encB);
 		Encoder_ResetCount(&encC);
 
-		PID_Update(&PID_A, udp_rx.motorA_setpoint, (float)encA.count, 999);
-		PID_Update(&PID_B, udp_rx.motorB_setpoint, (float)encB.count, 999);
-		PID_Update(&PID_C, udp_rx.motorC_setpoint, (float)encC.count, 999);
+//		PID_Update(&PID_A, udp_rx.motorA_setpoint, (float)encA.count, 999);
+//		PID_Update(&PID_B, udp_rx.motorB_setpoint, (float)encB.count, 999);
+//		PID_Update(&PID_C, udp_rx.motorC_setpoint, (float)encC.count, 999);
 
 		Motor_Run(&motorA, (int16_t)PID_A.output);
 		Motor_Run(&motorB, (int16_t)PID_B.output);
@@ -314,12 +314,12 @@ void Robot_LED_Blink()
 void Robot_Transmit_UART()
 {
 	//--- VGT ARM
-	memcpy(UART1_TX_BUFFER + 3, &udp_rx.robot_start, 1);
-	memcpy(UART1_TX_BUFFER + 4, &rst_state, 1);
-	memcpy(UART1_TX_BUFFER + 5, &udp_rx.relay_state, 1);
-	memcpy(UART1_TX_BUFFER + 6, &udp_rx.rotation_setpoint, 2);
-	memcpy(UART1_TX_BUFFER + 8, &udp_rx.horizontal_setpoint, 2);
-	memcpy(UART1_TX_BUFFER + 10, &udp_rx.vertical_setpoint, 2);
+//	memcpy(UART1_TX_BUFFER + 3, &udp_rx.robot_start, 1);
+//	memcpy(UART1_TX_BUFFER + 4, &rst_state, 1);
+//	memcpy(UART1_TX_BUFFER + 5, &udp_rx.relay_state, 1);
+//	memcpy(UART1_TX_BUFFER + 6, &udp_rx.rotation_setpoint, 2);
+//	memcpy(UART1_TX_BUFFER + 8, &udp_rx.horizontal_setpoint, 2);
+//	memcpy(UART1_TX_BUFFER + 10, &udp_rx.vertical_setpoint, 2);
 
 	HAL_UART_Transmit_DMA(&huart1, (uint8_t*)UART1_TX_BUFFER, sizeof(UART1_TX_BUFFER));
 }
@@ -654,7 +654,7 @@ int main(void)
 	  if(udp_cnt >= 1)
 	  {
 		  MX_LWIP_Process();
-		  udpClient_send();
+//		  udpClient_send();
 		  udp_cnt = 0;
 	  }
 
