@@ -51,7 +51,6 @@ class TrashDetector:
         return r, g, b
 
     def drawReticle(self, frame, cx, cy):
-        # Cross Reticle (X shape)
         x_length = 10
         cv2.line(frame, (cx - x_length//2, cy - x_length//2), 
                 (cx + x_length//2, cy + x_length//2), 
@@ -90,14 +89,11 @@ class TrashDetector:
                     cords = [round(x) for x in cords]
                     conf = round(box.conf[0].item(), 2)
 
-                    # Calculate centroid of object
                     cx = int((cords[0] + cords[2]) / 2.0)
                     cy = int((cords[1] + cords[3]) / 2.0)
 
-                    # Calculate distance from camera center
                     distance = np.sqrt((cx - self.camera_center_x)**2 + (cy - self.camera_center_y)**2)
 
-                    # Update closest trash if this is closer
                     if distance < min_distance:
                         min_distance = distance
                         closest_trash_x = cx
@@ -118,22 +114,18 @@ class TrashDetector:
                     else:
                         trash_type = 0
 
-                    # Draw on display frame if enabled
                     if self.display:
                         r, g, b = self.colourBoundingBox(class_id)
                         
-                        # Bounding box
                         cv2.rectangle(display_frame, 
                                     (cords[0], cords[1]), 
                                     (cords[2], cords[3]), 
                                     (b, g, r), 
                                     2)
                         
-                        # Display info
                         label = f"{class_id}, {conf}, ({cx},{cy})"
                         text_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)[0]
                         
-                        # Background for text
                         cv2.rectangle(display_frame, 
                                     (cords[0], cords[1] - text_size[1] - 5),
                                     (cords[0] + text_size[0], cords[1] - 5),
@@ -150,27 +142,20 @@ class TrashDetector:
                         # Draw centroid point
                         cv2.circle(display_frame, (cx, cy), 3, (0, 0, 255), -1)
 
-        # Add camera center reticle and info if display is enabled
         if self.display and display_frame is not None:
-            # Draw camera center reticle
             self.drawReticle(display_frame, self.camera_center_x, self.camera_center_y)
-            
-            # Add info text if trash is detected
+        
             if detected_trash:
-                # Draw line from center to closest trash
                 cv2.line(display_frame, 
                         (self.camera_center_x, self.camera_center_y),
                         (closest_trash_x, closest_trash_y),
                         (255, 0, 255), 2)
                 
-                # Draw circle at closest trash center
                 cv2.circle(display_frame, (closest_trash_x, closest_trash_y), 5, (255, 255, 0), -1)
                 
-                # Calculate distances
                 x_distance = closest_trash_x - self.camera_center_x
                 y_distance = self.camera_center_y - closest_trash_y
-                
-                # Add info text
+
                 center_text = f"Camera Center: ({self.camera_center_x},{self.camera_center_y})"
                 cv2.putText(display_frame, center_text, (20, display_frame.shape[0] - 100),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
@@ -193,19 +178,17 @@ class TrashDetector:
                 cv2.putText(display_frame, direction_text, (20, display_frame.shape[0] - 20),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
             else:
-                # No trash detected message
                 cv2.putText(display_frame, "No trash detected!", (20, 40),
                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
 
         return display_frame, detected_trash, trash_type, closest_trash_x, closest_trash_y, closest_bbox, closest_centroid
 
     def run(self):
-        rate = rospy.Rate(30)  # 30 Hz
+        rate = rospy.Rate(30)
         
         while not rospy.is_shutdown():
             display_frame, detected, trash_type, cx, cy, bbox, centroid = self.infer()
             
-            # Populate camera message
             self.camera_msg.trashDetected = detected
             self.camera_msg.trashType = trash_type
             self.camera_msg.cameraCenterX = self.camera_center_x
@@ -223,10 +206,8 @@ class TrashDetector:
                 self.camera_msg.bbox = [0, 0, 0, 0]
                 self.camera_msg.centroid = [0, 0]
             
-            # Publish message
             self.camera_pub.publish(self.camera_msg)
             
-            # Display if enabled
             if self.display and display_frame is not None:
                 cv2.imshow('YOLO Object Detection', display_frame)
                 key = cv2.waitKey(1)

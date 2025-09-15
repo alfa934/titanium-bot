@@ -41,16 +41,13 @@ void udpWriteCallback(const ros::TimerEvent &event)
 {
     timeoutCallback();
 
-    // memcpy(tx_buffer +  3, &robot_system.start, 1);
-    // memcpy(tx_buffer +  4, &robot_system.reset, 1);
-	// memcpy(tx_buffer +  5, &motor_base.motor_a, 2);
-    // memcpy(tx_buffer +  7, &motor_base.motor_b, 2);
-    // memcpy(tx_buffer +  9, &motor_base.motor_c, 2);
-    // memcpy(tx_buffer + 11, &motor_arm.motor_1, 2);
-    // memcpy(tx_buffer + 13, &motor_arm.motor_2, 2);
-    // memcpy(tx_buffer + 15, &motor_arm.motor_3, 2);
-    // memcpy(tx_buffer + 17, &relay.relay_state, 1);
-	
+    memcpy(tx_buffer +  3, &cam.trashDetected, 1);
+    memcpy(tx_buffer +  4, &cam.trashType,     1);
+    memcpy(tx_buffer +  5, &cam.cameraCenterX, 2);
+    memcpy(tx_buffer +  7, &cam.cameraCenterY, 2);
+    memcpy(tx_buffer +  9, &cam.closestTrashX, 2);
+    memcpy(tx_buffer + 11, &cam.closestTrashY, 2);
+
     socklen_t len = sizeof(cliaddr);
 	sendto(sockfd, tx_buffer, sizeof(tx_buffer), MSG_CONFIRM,
 			(const struct sockaddr *) &cliaddr, len); 
