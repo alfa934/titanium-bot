@@ -1,3 +1,4 @@
-../Core/Src/pid.c:11:6:PID_Init	24	static
-../Core/Src/pid.c:33:6:PID_Update	24	static
-../Core/Src/pid.c:65:6:PID_Update_Rotate	24	static
+../Core/Src/pid.c:11:6:PID_Init	40	static
+../Core/Src/pid.c:35:6:PID_Update	24	static
+../Core/Src/pid.c:59:6:PID_Update_Rotate	32	static
+../Core/Src/pid.c:94:6:PID_Reset	16	static

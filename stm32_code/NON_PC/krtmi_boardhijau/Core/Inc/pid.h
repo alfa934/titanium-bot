@@ -28,13 +28,17 @@ typedef struct
 	float 	feedback;
 
 	float 	max_output;
+	float 	max_windup;
+	float	tolerance;
 	float 	output;
 
 } PID_t;
 
+
 /* Functions */
-void PID_Init(PID_t *uPID, float kp, float ki, float kd);
-void PID_Update(PID_t *uPID, float setpoint, float feedback, float max_output);
-void PID_Update_Rotate(PID_t *uPID, float setpoint, float feedback, float max_output);
+void PID_Init(PID_t *uPID, float kp, float ki, float kd, float max_output, float max_windup, float tolerance);
+void PID_Update(PID_t *uPID, float setpoint, float feedback);
+void PID_Update_Rotate(PID_t *uPID, float setpoint, float feedback);
+void PID_Reset(PID_t *uPID);
 
 #endif /* INC_PID_H_ */

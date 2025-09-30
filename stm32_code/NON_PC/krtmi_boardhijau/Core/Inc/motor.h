@@ -32,6 +32,11 @@ typedef enum
 	MOTOR_G
 } Motor_e;
 
+typedef enum
+{
+	REVERSE_FALSE,
+	REVERSE_TRUE
+} Direction_e ;
 /******************************************************************************
  * Structs
  ******************************************************************************/
@@ -45,7 +50,7 @@ typedef struct
     TIM_HandleTypeDef* 	htimx;
     uint32_t 			channel;
 
-    uint8_t 			reversed;
+    Direction_e 		reversed;
 
 } Motor_t;
 
@@ -54,7 +59,7 @@ typedef struct
 {
     TIM_HandleTypeDef* 	htimx;
     int16_t 			count;
-    uint8_t 			reversed;
+    Direction_e 		reversed;
 
 } Encoder_t;
 
@@ -66,11 +71,11 @@ void 	Motor_Init(	Motor_t *uMotor,
                 	GPIO_TypeDef *GPIO_A, uint16_t GPIO_PIN_A,
 					GPIO_TypeDef *GPIO_B, uint16_t GPIO_PIN_B,
 					TIM_HandleTypeDef *htimx, uint32_t channel,
-					uint8_t reversed);
+					Direction_e reversed);
 
 void 	Motor_Run(Motor_t *uMotor, int16_t speed);
 
-void 	Encoder_Init(Encoder_t *uEncoder, TIM_HandleTypeDef *htimx, uint8_t reversed);
+void 	Encoder_Init(Encoder_t *uEncoder, TIM_HandleTypeDef *htimx, Direction_e reversed);
 
 void 	Encoder_GetCount(Encoder_t *uEncoder);
 

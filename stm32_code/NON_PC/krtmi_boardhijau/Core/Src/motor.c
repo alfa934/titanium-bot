@@ -14,7 +14,7 @@ void Motor_Init(Motor_t *uMotor,
                GPIO_TypeDef *GPIO_A, uint16_t GPIO_PIN_A,
                GPIO_TypeDef *GPIO_B, uint16_t GPIO_PIN_B,
                TIM_HandleTypeDef *htimx, uint32_t channel,
-               uint8_t reversed)
+               Direction_e reversed)
 {
 	uMotor -> GPIO_A 		= GPIO_A;
 	uMotor -> GPIO_PIN_A 	= GPIO_PIN_A;
@@ -66,7 +66,7 @@ void Motor_Run(Motor_t *uMotor, int16_t speed)
 }
 
 
-void Encoder_Init(Encoder_t *uEncoder, TIM_HandleTypeDef *htimx, uint8_t reversed)
+void Encoder_Init(Encoder_t *uEncoder, TIM_HandleTypeDef *htimx, Direction_e reversed)
 {
 	uEncoder -> htimx 		= htimx;
 	uEncoder -> reversed 	= reversed;

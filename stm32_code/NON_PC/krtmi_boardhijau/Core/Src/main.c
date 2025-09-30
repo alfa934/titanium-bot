@@ -64,6 +64,14 @@ void SystemClock_Config(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+#define MAX_ROTATION_PULSE 835
+#define MAX_HORIZONTAL_PULSE 1955
+#define MAX_VERTICAL_PULSE 2200
+#define SEARCH_HORIZONTAL_PULSE 800
+
+#define ENC_X_TO_CM 0.024691
+#define ENC_Y_TO_CM 0.023529
+
 uint8_t udp_cnt = 0;
 uint8_t rst_state = 0;
 int16_t rst_cnt = 0;
@@ -81,19 +89,55 @@ Encoder_t encY;
 PID_t PID_A;
 PID_t PID_B;
 PID_t PID_C;
+PID_t PID_x_enc;
+PID_t PID_y_enc;
+PID_t PID_w_mpu;
 
-float kp;
-float ki;
-float kd;
+PID_t PID_rot_enc;
+PID_t PID_hor_enc;
+PID_t PID_ver_enc;
+PID_t PID_rot_cam;
+PID_t PID_hor_cam;
+
+float kp_base = 45;
+float ki_base = 2.5;
+float kd_base = 0;
+
+int16_t vx = 0;
+int16_t vy = 0;
+int16_t vw = 0;
+float global_x = 0;
+float global_y = 0;
+float yaw_degree = 0;
+float yaw_flip   = 0;
+float yaw_adjust = 0;
+float yaw_radian = 0;
 
 char UART1_RX_BUFFER[53]; //--- VGT ARM
 char UART2_RX_BUFFER[23];
 char UART3_RX_BUFFER[43];
 char UART4_RX_BUFFER[53];
-char UART5_RX_BUFFER[23];
+char UART5_RX_BUFFER[7];  //--- odom enc
 char UART6_RX_BUFFER[7];  //--- NANO YAW
 
 char UART1_TX_BUFFER[53] = "ABC";
+
+
+//---- ARM
+uint8_t robot_start = 0;
+uint8_t relay_state = 0;
+int16_t set_speed_rot = 0;
+int16_t set_speed_hor = 0;
+int16_t set_speed_ver = 0;
+int16_t set_position_rot = 0;
+int16_t set_position_hor = 0;
+int16_t set_position_ver = 0;
+int16_t total_rot_enc = 0;
+int16_t total_hor_enc = 0;
+int16_t total_ver_enc = 0;
+uint8_t arm_scanning_mode = 0;
+uint8_t manual_arm = 0;
+
 
 //float flip_yaw(float original_yaw)
 //{
@@ -204,35 +248,42 @@ char UART1_TX_BUFFER[53] = "ABC";
 //	vw = vw_controller;
 //}
 
+uint8_t arm_arm_state = 0;
 
 void Robot_Init()
 {
 	Motor_Init(	&motorA,
 				GPIOC, GPIO_PIN_15,
 				GPIOC, GPIO_PIN_13,
-				&htim11, TIM_CHANNEL_1, 1);
+				&htim11, TIM_CHANNEL_1, REVERSE_TRUE);
 
 	Motor_Init(	&motorB,
 				GPIOE, GPIO_PIN_3,
 				GPIOE, GPIO_PIN_0,
-				&htim10, TIM_CHANNEL_1, 0);
+				&htim10, TIM_CHANNEL_1, REVERSE_FALSE);
 
 	Motor_Init(	&motorC,
 				GPIOD, GPIO_PIN_10,
 				GPIOD, GPIO_PIN_8,
-				&htim12, TIM_CHANNEL_1, 1);
+				&htim12, TIM_CHANNEL_1, REVERSE_TRUE);
 
-	Encoder_Init(&encA, &htim3, 0);
-	Encoder_Init(&encB, &htim4, 1);
-	Encoder_Init(&encC, &htim2, 0);
+	Encoder_Init(&encA, &htim3, REVERSE_FALSE);
+	Encoder_Init(&encB, &htim4, REVERSE_TRUE);
+	Encoder_Init(&encC, &htim2, REVERSE_FALSE);
 
-	kp = 45;
-	ki = 2.5;
-	kd = 0;
+	PID_Init(&PID_rot_enc,  0.1, 0, 0,  5,  5, 25);
+	PID_Init(&PID_hor_enc,  0.1, 0, 0, 10, 10, 25);
+	PID_Init(&PID_ver_enc,  0.1, 0, 0, 60, 60, 50);
+	PID_Init(&PID_rot_cam, 0.04, 0, 0,  1,  1, 25);
+	PID_Init(&PID_hor_cam, 0.05, 0, 0,  5,  5, 25);
 
-    PID_Init(&PID_A, kp, ki, kd);
-    PID_Init(&PID_B, kp, ki, kd);
-    PID_Init(&PID_C, kp, ki, kd);
+    PID_Init(&PID_A, kp_base, ki_base, kd_base, 999, 999, 0);
+    PID_Init(&PID_B, kp_base, ki_base, kd_base, 999, 999, 0);
+    PID_Init(&PID_C, kp_base, ki_base, kd_base, 999, 999, 0);
+
+    PID_Init(&PID_x_enc, 0, 0, 0, 999, 999, 0);
+    PID_Init(&PID_y_enc, 0, 0, 0, 999, 999, 0);
+    PID_Init(&PID_w_mpu, 0, 0, 0, 999, 999, 0);
 
     HAL_UART_Receive_DMA(&huart1, (uint8_t*)UART1_RX_BUFFER, sizeof(UART1_RX_BUFFER));
     HAL_UART_Receive_DMA(&huart2, (uint8_t*)UART2_RX_BUFFER, sizeof(UART2_RX_BUFFER));
@@ -246,28 +297,444 @@ void Robot_Init()
 	HAL_TIM_Base_Start_IT(&htim6);
 }
 
-void Robot_Motor()
+float flip_yaw(float original_yaw)
+{
+   return 360.0f - fmodf(original_yaw, 360.0f);
+}
+
+void Yaw_Process()
+{
+	static uint8_t offset_once = 0;
+
+	yaw_flip = flip_yaw(udp_tx.yaw_degree);
+
+	if(yaw_flip > 180.001)
+	{
+		yaw_flip -= 360.001;
+	}
+	else if(yaw_flip < -180.001)
+	{
+        yaw_flip += 360.001;
+	}
+
+	if(!offset_once)
+	{
+		yaw_adjust = yaw_flip;
+		offset_once++;
+	}
+
+	yaw_degree = yaw_flip - yaw_adjust;
+
+	yaw_radian = yaw_degree * M_PI/180.0;
+}
+
+void Odometry_Process()
+{
+	static uint8_t odom_cnt_ms = 0;
+
+	if(odom_cnt_ms >= 9)
+	{
+
+		global_x += (udp_tx.enc_x * cos(yaw_radian) - udp_tx.enc_y * sin(yaw_radian)) * ENC_X_TO_CM;
+		global_y += (udp_tx.enc_x * sin(yaw_radian) + udp_tx.enc_y * cos(yaw_radian)) * ENC_Y_TO_CM;
+
+		odom_cnt_ms = 0;
+	}
+	else
+	{
+		odom_cnt_ms++;
+	}
+}
+
+void Main_Arm_Algorithm()
+{
+	if(!robot_start)
+	{
+		return;
+	}
+
+	static uint8_t arm_state = 0;
+	static int16_t arm_cnt_ms = 0;
+	static uint8_t first_arm_up = 1;
+
+	arm_arm_state = arm_state;
+
+	switch(arm_state)
+	{
+		case 0: //--- Arm up
+			manual_arm = 0;
+			arm_scanning_mode = 0;
+			relay_state = 0;
+
+			if(first_arm_up)
+			{
+				if(set_position_ver <= MAX_VERTICAL_PULSE - 5)
+				{
+					set_position_ver += 5;
+				}
+
+	            if(abs(MAX_VERTICAL_PULSE - PID_ver_enc.feedback) < PID_ver_enc.tolerance)
+	            {
+	                if(arm_cnt_ms >= 149)
+	                {
+	                    arm_state++;
+	                    arm_cnt_ms = 0;
+	                }
+	                else
+	                {
+	                    arm_cnt_ms++;
+	                }
+	            }
+			}
+			else
+			{
+				if(set_position_ver <= (MAX_VERTICAL_PULSE - 65) - 5)
+				{
+					set_position_ver += 5;
+				}
+
+	            if(abs(MAX_VERTICAL_PULSE - 60 - PID_ver_enc.feedback) < PID_ver_enc.tolerance)
+	            {
+	                if(arm_cnt_ms >= 149)
+	                {
+	                    arm_state++;
+	                    arm_cnt_ms = 0;
+	                }
+	                else
+	                {
+	                    arm_cnt_ms++;
+	                }
+	            }
+			}
+			break;
+
+		case 1: //--- Arm hold rotate
+			set_position_rot = 0;
+
+			if(abs(PID_rot_enc.error) < PID_rot_enc.tolerance)
+			{
+				arm_state++;
+			}
+			break;
+
+		case 2: //--- Arm search position
+			set_position_hor = SEARCH_HORIZONTAL_PULSE;
+
+			if(abs(PID_hor_enc.error) < PID_hor_enc.tolerance)
+			{
+				arm_state++;
+			}
+			break;
+
+		case 3: //--- wait for input (auto or manual)
+			if(udp_tx.option) //--- manual mode
+			{
+				manual_arm = 1;
+				arm_state = 99;
+			}
+
+			if(udp_tx.down) //--- auto mode
+			{
+				PID_Reset(&PID_rot_enc);
+				PID_Reset(&PID_hor_enc);
+				arm_scanning_mode = 1;
+				arm_state++;
+			}
+			break;
+
+		case 4: //--- Search Trash Auto
+			if(udp_tx.up)
+			{
+				PID_Reset(&PID_rot_cam);
+				PID_Reset(&PID_hor_cam);
+				arm_state = 0;
+			}
+
+			if(udp_rx.trashDetected)
+			{
+				set_position_rot = 35;
+				set_position_hor = 30;
+
+
+                if(abs(PID_rot_cam.error) <= PID_rot_cam.tolerance && abs(PID_hor_cam.error) <= PID_hor_cam.tolerance)
+                {
+                    if(arm_cnt_ms >= 249)
+                    {
+        				PID_Reset(&PID_rot_cam);
+        				PID_Reset(&PID_hor_cam);
+                        arm_scanning_mode = 0;
+                        arm_state++;
+                        arm_cnt_ms = 0;
+                    }
+                    else
+                    {
+                        arm_cnt_ms++;
+                    }
+                }
+
+			}
+			else //--- stops arm movement if trash not detected
+			{
+				set_position_rot = PID_rot_cam.feedback;
+				set_position_hor = PID_hor_cam.feedback;
+			}
+			break;
+
+		case 5: //--- go down while keeping rotation and horizontal position
+			if(udp_tx.up)
+			{
+				PID_Reset(&PID_rot_cam);
+				PID_Reset(&PID_hor_cam);
+				arm_state = 0;
+			}
+
+			set_position_rot = PID_rot_enc.feedback;
+			set_position_hor = PID_hor_enc.feedback;
+
+			if(set_position_ver >= 105)
+			{
+				set_position_ver -= 5;
+			}
+
+			if(PID_ver_enc.feedback < 250)
+			{
+				relay_state = 1;
+			}
+
+			if(abs(100 - PID_ver_enc.feedback) < PID_ver_enc.tolerance)
+			{
+				if(udp_tx.lim3 == 0)
+				{
+					total_ver_enc = 0;
+					PID_Reset(&PID_ver_enc);
+				}
+
+                if(arm_cnt_ms >= 249)
+                {
+                	first_arm_up = 0;
+                    arm_state++;
+                    arm_cnt_ms = 0;
+                }
+                else
+                {
+                    arm_cnt_ms++;
+                }
+			}
+			break;
+
+		case 6: //--- go up, pick up trash
+			if(set_position_ver <= MAX_VERTICAL_PULSE - 5)
+			{
+				set_position_ver += 5;
+			}
+
+            if(abs(MAX_VERTICAL_PULSE - PID_ver_enc.feedback) < PID_ver_enc.tolerance)
+            {
+                arm_state++;
+            }
+			break;
+
+		case 7: //--- extend MAX forward, ready for trash bin
+			set_position_rot = 0;
+			set_position_hor = MAX_HORIZONTAL_PULSE;
+
+			if(abs(PID_rot_enc.error) < PID_rot_enc.tolerance && abs(PID_hor_enc.error) < PID_hor_enc.tolerance)
+			{
+				arm_state++;
+			}
+
+			break;
+
+		case 8: //--- wait for input to go down, or go back to beginning state
+			if(udp_tx.down)
+			{
+				arm_state++;
+			}
+
+			if(udp_tx.up)
+			{
+				arm_state = 0;
+			}
+			break;
+
+		case 9: //--- go down and let go of trash
+			relay_state = 0;
+
+			if(set_position_ver >= 105)
+			{
+				set_position_ver -= 5;
+			}
+
+
+			if(abs(100 - PID_ver_enc.feedback) < PID_ver_enc.tolerance)
+			{
+				if(udp_tx.lim3 == 0)
+				{
+					total_ver_enc = 0;
+					PID_Reset(&PID_ver_enc);
+				}
+
+                if(arm_cnt_ms >= 2499)
+                {
+                    arm_state = 0;
+                    arm_cnt_ms = 0;
+                }
+                else
+                {
+                    arm_cnt_ms++;
+                }
+			}
+
+			break;
+
+	}
+}
+
+void Main_Base_Algorithm()
+{
+	if(!robot_start)
+	{
+		yaw_adjust = yaw_flip;
+		global_x = 0;
+		global_y = 0;
+		Encoder_ResetCount(&encA);
+		Encoder_ResetCount(&encB);
+		Encoder_ResetCount(&encC);
+		return;
+	}
+}
+
+void PID_Arm_Position()
 {
 	static uint16_t timer = 0;
 
 	if(timer >= 9)
 	{
-//		float avg_distance = (UltraSonic[0] + UltraSonic[1]) / 2;
-//
-//		PID_Update(&PID_VY, 20, avg_distance, 5);
-//
-//		PID_Update(&PID_VW, UltraSonic[0], UltraSonic[1], 5);
+		total_rot_enc += udp_tx.enc_1;
+        total_hor_enc += udp_tx.enc_2;
+        total_ver_enc += udp_tx.enc_3;
 
-//		PID_Update_Rotate(&PID_VW, vw, yaw_degree, 5);
-//
-//		int16_t va = Kinematics_Triangle(MOTOR_A, vx, vy, (int16_t)PID_VW.output);
-//		int16_t vb = Kinematics_Triangle(MOTOR_B, vx, vy, (int16_t)PID_VW.output);
-//		int16_t vc = Kinematics_Triangle(MOTOR_C, vx, vy, (int16_t)PID_VW.output);
+		if(arm_scanning_mode)
+		{
+			PID_Update(&PID_rot_cam, set_position_rot, udp_rx.closestTrashX);
 
-//		int16_t va = udp_rx.motor_a;
-//		int16_t vb = udp_rx.motor_b;
-//		int16_t vc = udp_rx.motor_c;
+			set_speed_rot = (int16_t)PID_rot_cam.output;
 
+			if(abs(PID_rot_cam.error) < PID_rot_cam.tolerance)
+			{
+				set_speed_rot = 0;
+			}
+	        if(total_rot_enc < -300 && PID_rot_cam.output <= 0)
+	        {
+	        	set_speed_rot = 0;
+	        }
+	        if(total_rot_enc > 300 && PID_rot_cam.output >= 0)
+	        {
+	        	set_speed_rot = 0;
+	        }
+
+
+			PID_Update(&PID_hor_cam, set_position_hor, udp_rx.closestTrashY);
+
+			set_speed_hor = (int16_t)PID_hor_cam.output;
+
+			if(abs(PID_hor_cam.error) < PID_hor_cam.tolerance)
+			{
+				set_speed_hor = 0;
+			}
+	        if(total_hor_enc < 200 && PID_hor_cam.output <= 0)
+	        {
+	        	set_speed_hor = 0;
+	        }
+	        if(total_hor_enc > 1400 && PID_hor_cam.output >= 0)
+	        {
+	        	set_speed_hor = 0;
+	        }
+		}
+		else
+		{
+			PID_Update(&PID_rot_enc, set_position_rot, total_rot_enc);
+
+			set_speed_rot = (int16_t)PID_rot_enc.output;
+
+			if(abs(PID_rot_enc.error) < PID_rot_enc.tolerance)
+			{
+				set_speed_rot = 0;
+			}
+	        if(total_rot_enc < -300 && PID_rot_enc.output <= 0)
+	        {
+	        	set_speed_rot = 0;
+	        }
+	        if(total_rot_enc > 300 && PID_rot_enc.output >= 0)
+	        {
+	        	set_speed_rot = 0;
+	        }
+
+
+			PID_Update(&PID_hor_enc, set_position_hor, total_hor_enc);
+
+			set_speed_hor = (int16_t)PID_hor_enc.output;
+
+			if(abs(PID_hor_enc.error) < PID_hor_enc.tolerance)
+			{
+				set_speed_hor = 0;
+			}
+	        if(total_hor_enc < 10 && PID_hor_enc.output <= 0)
+	        {
+	        	set_speed_hor = 0;
+	        }
+	        if(total_hor_enc > MAX_HORIZONTAL_PULSE && PID_hor_enc.output >= 0)
+	        {
+	        	set_speed_hor = 0;
+	        }
+
+		}
+
+		PID_Update(&PID_ver_enc, set_position_ver, total_ver_enc);
+
+		set_speed_ver = (int16_t)PID_ver_enc.output;
+
+		if(abs(PID_ver_enc.error) < PID_ver_enc.tolerance)
+		{
+			set_speed_ver = 0;
+		}
+
+		timer = 0;
+	}
+	else
+	{
+		timer++;
+	}
+}
+
+void PID_Base_Position()
+{
+	static uint16_t timer = 0;
+
+	if(timer >= 9)
+	{
+		PID_Update(&PID_x_enc, base_pos_x, global_x);
+
+		vx = (int16_t)PID_x_enc.output;
+
+
+		timer = 0;
+	}
+	else
+	{
+		timer++;
+	}
+}
+
+void PID_Base_Speed()
+{
+	static uint16_t timer = 0;
+
+	if(timer >= 9)
+	{
+		int16_t va = Kinematics_Triangle(MOTOR_A, vx, vy, vw);
+		int16_t vb = Kinematics_Triangle(MOTOR_B, vx, vy, vw);
+		int16_t vc = Kinematics_Triangle(MOTOR_C, vx, vy, vw);
 
 		Encoder_GetCount(&encA);
 		Encoder_GetCount(&encB);
@@ -282,9 +749,9 @@ void Robot_Motor()
 		Encoder_ResetCount(&encB);
 		Encoder_ResetCount(&encC);
 
-//		PID_Update(&PID_A, udp_rx.motorA_setpoint, (float)encA.count, 999);
-//		PID_Update(&PID_B, udp_rx.motorB_setpoint, (float)encB.count, 999);
-//		PID_Update(&PID_C, udp_rx.motorC_setpoint, (float)encC.count, 999);
+		PID_Update(&PID_A, va, (float)encA.count);
+		PID_Update(&PID_B, vb, (float)encB.count);
+		PID_Update(&PID_C, vc, (float)encC.count);
 
 		Motor_Run(&motorA, (int16_t)PID_A.output);
 		Motor_Run(&motorB, (int16_t)PID_B.output);
@@ -292,11 +759,13 @@ void Robot_Motor()
 
 		timer = 0;
 	}
-
-	timer++;
+	else
+	{
+		timer++;
+	}
 }
 
-void Robot_LED_Blink()
+void LED_Blink()
 {
 	static uint16_t timer = 0;
 	static uint8_t state = 0;
@@ -307,19 +776,21 @@ void Robot_LED_Blink()
 		HAL_GPIO_WritePin(GPIOE, GPIO_PIN_1, state);
 		timer = 0;
 	}
-
-	timer++;
+	else
+	{
+		timer++;
+	}
 }
 
-void Robot_Transmit_UART()
+void Arm_Transmit_UART()
 {
 	//--- VGT ARM
-//	memcpy(UART1_TX_BUFFER + 3, &udp_rx.robot_start, 1);
-//	memcpy(UART1_TX_BUFFER + 4, &rst_state, 1);
-//	memcpy(UART1_TX_BUFFER + 5, &udp_rx.relay_state, 1);
-//	memcpy(UART1_TX_BUFFER + 6, &udp_rx.rotation_setpoint, 2);
-//	memcpy(UART1_TX_BUFFER + 8, &udp_rx.horizontal_setpoint, 2);
-//	memcpy(UART1_TX_BUFFER + 10, &udp_rx.vertical_setpoint, 2);
+	memcpy(UART1_TX_BUFFER +  3, &robot_start, 1);
+	memcpy(UART1_TX_BUFFER +  4, &rst_state, 1);
+	memcpy(UART1_TX_BUFFER +  5, &relay_state, 1);
+	memcpy(UART1_TX_BUFFER +  6, &set_speed_rot, 2);
+	memcpy(UART1_TX_BUFFER +  8, &set_speed_hor, 2);
+	memcpy(UART1_TX_BUFFER + 10, &set_speed_ver, 2);
 
 	HAL_UART_Transmit_DMA(&huart1, (uint8_t*)UART1_TX_BUFFER, sizeof(UART1_TX_BUFFER));
 }
@@ -332,13 +803,20 @@ void Read_Buttons()
 	udp_tx.buttons[1] = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_7);
 	udp_tx.buttons[2] = HAL_GPIO_ReadPin(GPIOD, GPIO_PIN_3);
 
+	if(udp_tx.start_button == 0)
+	{
+		robot_start = 1;
+		rst_state = 0;
+	}
+
 	if(udp_tx.reset_button == 0)
 	{
+		robot_start = 0;
 		rst_state = 1;
 	}
 }
 
-void Robot_Loop()
+void Reset_Robot()
 {
 	if(rst_state)
 	{
@@ -351,21 +829,30 @@ void Robot_Loop()
 			rst_cnt++;
 		}
 	}
+}
 
+void Robot_Loop()
+{
+	//--- ROBOT
+	LED_Blink();
 	Read_Buttons();
-
-	Robot_Transmit_UART();
-
-	Robot_Motor();
-
-	Robot_LED_Blink();
+	Reset_Robot();
+	//--- ARM
+	Main_Arm_Algorithm();
+	PID_Arm_Position();
+	Arm_Transmit_UART();
+	//--- BASE
+	Main_Base_Algorithm();
+	Yaw_Process();
+	Odometry_Process();
+	PID_Base_Position();
+	PID_Base_Speed();
 
 	udp_cnt++;
 }
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-
 	if(htim == &htim6)
 	{
 		Robot_Loop();
