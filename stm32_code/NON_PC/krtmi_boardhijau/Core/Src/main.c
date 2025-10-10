@@ -340,26 +340,6 @@ void Robot_Init()
 	HAL_TIM_Base_Start_IT(&htim6);
 }
 
-int16_t Controller_Drift(int16_t value, int16_t max)
-{
-    if(abs(value) < max)
-    {
-        return 0;
-    }
-    else if(value > 0)
-    {
-        return value - max;
-    }
-    else
-    {
-        return value + max;
-    }
-}
-
-int16_t map(int16_t x, int16_t in_min, int16_t in_max, int16_t out_min, int16_t out_max)
-{
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
-}
 
 void Set_LED(LED_t *led, uint8_t state, uint8_t R, uint8_t G, uint8_t B, uint8_t brightness, uint8_t freq_ms)
 {
