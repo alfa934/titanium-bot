@@ -356,7 +356,7 @@ int16_t Controller_Drift(int16_t value, int16_t max)
     }
 }
 
-int16_t map(int16_ x, int16_ in_min, int16_ in_max, int16_ out_min, int16_ out_max)
+int16_t map(int16_t x, int16_t in_min, int16_t in_max, int16_t out_min, int16_t out_max)
 {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
