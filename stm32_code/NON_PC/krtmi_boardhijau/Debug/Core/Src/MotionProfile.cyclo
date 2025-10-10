@@ -1,0 +1,6 @@
+../Core/Src/MotionProfile.c:13:6:MotionProfile_init	1
+../Core/Src/MotionProfile.c:26:6:MotionProfile_update	21
+../Core/Src/MotionProfile.c:91:9:MotionProfile_finished	1
+../Core/Src/MotionProfile.c:96:6:MotionProfile_set_target	1
+../Core/Src/MotionProfile.c:102:7:MotionProfile_get_position	1
+../Core/Src/MotionProfile.c:107:7:MotionProfile_get_velocity	1

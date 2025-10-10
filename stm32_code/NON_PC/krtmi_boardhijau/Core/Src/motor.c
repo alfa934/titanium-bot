@@ -105,11 +105,11 @@ int16_t Kinematics_Triangle(Motor_e eMotor, int16_t vx, int16_t vy, int16_t vw)
 	switch(eMotor)
 	{
 		case MOTOR_A:
-			return vx + vw;
+			return -vy + vw;
 		case MOTOR_B:
-			return (-0.5 * vx) + (0.866025 * vy) + vw;
+			return (0.5 * vy) + (0.866025 * vx) + vw;
 		case MOTOR_C:
-			return (-0.5 * vx) - (0.866025 * vy) + vw;
+			return (0.5 * vy) - (0.866025 * vx) + vw;
 
 		case MOTOR_D:
 		case MOTOR_E:

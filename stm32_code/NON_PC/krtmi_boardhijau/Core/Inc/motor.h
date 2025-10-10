@@ -9,10 +9,7 @@
 #define INC_MOTOR_H_
 
 #include "main.h"
-#include "adc.h"
-#include "can.h"
 #include "dma.h"
-#include "i2c.h"
 #include "lwip.h"
 #include "tim.h"
 #include "usart.h"

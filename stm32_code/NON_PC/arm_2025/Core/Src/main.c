@@ -131,6 +131,7 @@ PID_t pid_vertical = {0};
 
 
 char UART1_RX_BUFFER[53];
+uint8_t arm_ready 	= 0;
 uint8_t robot_start = 0;
 uint8_t robot_reset = 0;
 uint8_t relay_state = 1; //--- 1 is OFF, 0 is ON
@@ -218,6 +219,7 @@ void transmit_uart()
 	memcpy(UART1_TX_BUFFER + 7, &enc1_cnt, 2);
 	memcpy(UART1_TX_BUFFER + 9, &enc2_cnt, 2);
 	memcpy(UART1_TX_BUFFER + 11, &enc3_cnt, 2);
+	memcpy(UART1_TX_BUFFER + 13, &arm_ready, 1);
 
 	HAL_UART_Transmit_DMA(&huart1, (uint8_t*)UART1_TX_BUFFER, sizeof(UART1_TX_BUFFER));
 }
@@ -287,6 +289,8 @@ void arm_state_machine()
 		case 2: //--- Main PID speed loop (every 10 ms)
 			if(arm_cnt_ms >= 9)
 			{
+				arm_ready = 1;
+
 				enc1_cnt = -TIM1 -> CNT;
 				enc2_cnt = -TIM2 -> CNT;
 				enc3_cnt = -TIM3 -> CNT;
