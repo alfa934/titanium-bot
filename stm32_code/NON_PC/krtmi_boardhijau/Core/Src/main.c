@@ -94,17 +94,21 @@ PID_t PID_x_enc;
 PID_t PID_y_enc;
 PID_t PID_w_mpu;
 PID_t PID_x_ultra;
+PID_t PID_y_cam;
 
 PID_t PID_rot_enc;
 PID_t PID_hor_enc;
 PID_t PID_ver_enc;
 PID_t PID_rot_cam;
 PID_t PID_hor_cam;
+PID_t PID_rot_box;
 
 float kp_base = 45;
 float ki_base = 2.5;
 float kd_base = 0;
 
+int16_t box_setpoint = 0;
+int16_t box_feedback = 0;
 int16_t vx = 0;
 int16_t vy = 0;
 int16_t vw = 0;
@@ -158,6 +162,7 @@ uint8_t manual_arm = 0;
 float 	set_rot = 0;
 float 	set_hor = 0;
 float 	set_ver = 0;
+uint8_t cam_detected = 0;
 
 //--- LED
 typedef struct
@@ -170,115 +175,6 @@ typedef struct
 
 LED_t RGB_LED;
 uint8_t rgb_state = 0;
-
-//float flip_yaw(float original_yaw)
-//{
-//    return 360.0f - fmodf(original_yaw, 360.0f);
-//}
-
-//void yaw_process()
-//{
-//	static uint8_t offset_once = 0;
-//	yaw_degree = flip_yaw(yaw_degree_raw);
-//
-//	if(yaw_degree > 180.001)
-//	{
-//		yaw_degree -= 360.001;
-//	}
-//	else if(yaw_degree < -180.001)
-//	{
-//		yaw_degree += 360.001;
-//	}
-//
-//	if(input.crs)
-//	{
-//		yaw_adjust = yaw_degree;
-//		vw_controller = 0;
-//	}
-//
-//	if(!offset_once)
-//	{
-//		yaw_adjust = yaw_degree;
-//		offset_once++;
-//	}
-//
-//	yaw_degree = yaw_degree - yaw_adjust;
-//
-//	yaw_radian = yaw_degree * M_PI/180.0;
-//}
-
-//void controller_process()
-//{
-//	static float arm_set_0 = 0;
-//	static float arm_set_1 = 0;
-//
-//	if(input.r1 && arm_setpoints[0] >= -920)
-//	{
-//		arm_set_0 -= 0.5;
-//	}
-//	else if(input.l1 && arm_setpoints[0] <= 920)
-//	{
-//		arm_set_0 += 0.5;
-//	}
-//
-//
-//	if(input.up && arm_setpoints[1] < 2250)
-//	{
-//		arm_set_1 += 1;
-//
-//	}
-//	else if(input.down && arm_setpoints[1] >= 0)
-//	{
-//		arm_set_1 -= 1;
-//	}
-//
-//	if(input.tri)
-//	{
-//		reset_rotation = 1;
-//		arm_set_0 = 0;
-//	}
-//	else
-//	{
-//		reset_rotation = 0;
-//	}
-
-//	arm_setpoints[0] = (int16_t)arm_set_0;
-//	arm_setpoints[1] = (int16_t)arm_set_1;
-//	arm_setpoints[2] = map(input.r2, 0, 255, 2592 - 50, 35);
-
-//	input.lX = Controller_Drift(input.lX_raw, 12);
-//	input.lY = Controller_Drift(input.lY_raw, 12);
-//	input.rX = Controller_Drift(input.rX_raw, 12);
-//	input.rY = Controller_Drift(input.rY_raw, 12);
-//
-//	input.lX = map(input.lX, -128, 127, -30, 30);
-//	input.lY = map(input.lY, -128, 127, -30, 30);
-//	input.rX = map(input.rX, -128, 127, -3, 3);
-//	input.rY = map(input.rY, -128, 127, -30, 30);
-
-	//--- Robot Centric
-//		vx_controller = input.lX;
-//		vy_controller = input.lY;
-//		vw_controller = -(input.rX);
-
-	//--- Field Centric
-//	vx_controller = input.lX *  cos(yaw_radian) + input.lY * sin(yaw_radian);
-//	vy_controller = input.lX * -sin(yaw_radian) + input.lY * cos(yaw_radian);
-//	vw_controller += -(input.rX) / 20.0;
-//
-//    if (vw_controller > 180.0f)
-//    {
-//    	vw_controller -= 360.0f;
-//    }
-//    else if (vw_controller < -180.0f)
-//    {
-//    	vw_controller += 360.0f;
-//    }
-//
-//	vx = vx_controller;
-//	vy = vy_controller;
-//	vw = vw_controller;
-//}
 
 uint8_t arm_arm_state = 0;
 
@@ -308,16 +204,16 @@ void Robot_Init()
 	PID_Init(&PID_ver_enc,  0.1, 0, 0, 60, 60, 50);
 	PID_Init(&PID_rot_cam, 0.04, 0, 0,  1,  1, 25);
 	PID_Init(&PID_hor_cam, 0.05, 0, 0,  5,  5, 25);
+	PID_Init(&PID_rot_box, 0.02, 0, 0,  1,  1, 50);
 
     PID_Init(&PID_A, kp_base, ki_base, kd_base, 999, 999, 0);
     PID_Init(&PID_B, kp_base, ki_base, kd_base, 999, 999, 0);
     PID_Init(&PID_C, kp_base, ki_base, kd_base, 999, 999, 0);
-
     PID_Init(&PID_x_enc, 0.17, 0, 0, 20, 20, 5);
     PID_Init(&PID_y_enc, 0.17, 0, 0, 20, 20, 5);
     PID_Init(&PID_w_mpu, 0.45, 0, 8, 5, 5, 1);
-
     PID_Init(&PID_x_ultra, 0.5, 0, 0, 5, 5, 5);
+    PID_Init(&PID_y_cam, 0.1, 0, 0, 5, 5, 1);
 
     MotionProfile_init(&x_profile, 65.0f, 50.0f, 50.0f, 5.0f);
     MotionProfile_init(&y_profile, 65.0f, 50.0f, 50.0f, 5.0f);
@@ -465,7 +361,7 @@ void RGB_LED_Process(uint8_t state)
 		case 7: //--- Plastik
 			Set_LED(&RGB_LED, 1, 134, 34, 255, 10, 1);
 			break;
-		case 8:
+		case 8: //--- Manual
 			Set_LED(&RGB_LED, 1, 0, 0, 255, 10, 1);
 			break;
 	}
@@ -542,7 +438,7 @@ void Main_Arm_Algorithm()
 
 			rgb_state = 1;
 			manual_arm = 0;
-			arm_scanning_mode = 0;
+			arm_scanning_mode = 0; //-- enc mode
 			relay_state = 0;
 
 			MotionProfile_set_target(&ver_profile, MAX_VERTICAL_PULSE);
@@ -589,12 +485,15 @@ void Main_Arm_Algorithm()
 				arm_state = 99;
 			}
 
-			if(udp_tx.down) //--- auto mode
+//			if(udp_tx.down) //--- auto mode
+//			if(udp_tx.buttons[1] == 0)
+			if(udp_rx.trashDetected && abs(udp_rx.closestTrashX) <= 200 && !(ultra_lost[0] || ultra_lost[1] || ultra_lost[2]))
 			{
 				PID_Reset(&PID_rot_enc);
 				PID_Reset(&PID_hor_enc);
-				arm_scanning_mode = 1;
+				arm_scanning_mode = 1; //--- cam mode
 				arm_state++;
+				cam_detected = 1;
 			}
 			break;
 
@@ -610,6 +509,7 @@ void Main_Arm_Algorithm()
 
 			if(udp_rx.trashDetected)
 			{
+				cam_detected = 1;
 				set_position_rot = 35;
 				set_position_hor = 30;
 
@@ -621,7 +521,7 @@ void Main_Arm_Algorithm()
                     	trash_type = udp_rx.trashType;
         				PID_Reset(&PID_rot_cam);
         				PID_Reset(&PID_hor_cam);
-                        arm_scanning_mode = 0;
+                        arm_scanning_mode = 0; //--- enc mode
                         arm_state++;
                         arm_cnt_ms = 0;
                     }
@@ -636,11 +536,13 @@ void Main_Arm_Algorithm()
 			{
 				set_position_rot = PID_rot_cam.feedback;
 				set_position_hor = PID_hor_cam.feedback;
+				cam_detected = 0;
 			}
 			break;
 
 		case 5: //--- go down while keeping rotation and horizontal position
 			rgb_state = trash_type + 2; //--- offset of 2
+			cam_detected = 1; //--- make sure to stop
 
 			if(udp_tx.up)
 			{
@@ -697,6 +599,7 @@ void Main_Arm_Algorithm()
 			break;
 
 		case 8:
+			cam_detected = 0; //--- move again
 
 			rgb_state = trash_type + 2; //--- offset of 2
 
@@ -715,8 +618,13 @@ void Main_Arm_Algorithm()
 
 			rgb_state = trash_type + 2; //--- offset of 2
 
-			if(udp_tx.down)
+//			if(udp_tx.down)
+//			if(udp_tx.buttons[1] == 0)
+			if(udp_rx.boxDetected && abs(udp_rx.cameraX - udp_rx.closestBoxX) <= 55)
 			{
+				cam_detected = 1;
+				arm_scanning_mode = 2; //--- box mode
+				PID_Reset(&PID_rot_enc);
 				arm_state++;
 			}
 
@@ -726,7 +634,41 @@ void Main_Arm_Algorithm()
 			}
 			break;
 
-		case 10: //--- go down and let go of trash
+		case 10:
+			rgb_state = trash_type + 2; //--- offset of 2
+
+			if(udp_rx.boxDetected)
+			{
+				cam_detected = 1;
+				set_position_rot = 45;
+
+	            if(abs(PID_rot_box.error) <= PID_rot_box.tolerance)
+	            {
+	                if(arm_cnt_ms >= 249)
+	                {
+	    				PID_Reset(&PID_rot_box);
+	                    arm_scanning_mode = 0;
+	                    arm_state++;
+	                    arm_cnt_ms = 0;
+	                }
+	                else
+	                {
+	                    arm_cnt_ms++;
+	                }
+	            }
+			}
+			else
+			{
+				cam_detected = 0;
+				set_position_rot = PID_rot_box.feedback;
+			}
+
+			break;
+
+		case 11: //--- go down and let go of trash
+
+
+			set_position_rot = PID_rot_enc.feedback;
 
 			rgb_state = trash_type + 2; //--- offset of 2
 
@@ -739,8 +681,9 @@ void Main_Arm_Algorithm()
 
 			if(MotionProfile_finished(&ver_profile))
 			{
-                if(arm_cnt_ms >= 1499)
+                if(arm_cnt_ms >= 2499)
                 {
+                	cam_detected = 0;
                     arm_state = 0;
                     arm_cnt_ms = 0;
                 }
@@ -751,7 +694,7 @@ void Main_Arm_Algorithm()
 			}
 			break;
 
-		case 21:
+		case 21: //--- ignore this, this is just a test, nigga
 			MotionProfile_set_target(&ver_profile, 0);
 			MotionProfile_update(&ver_profile, 0.001);
 			set_ver = MotionProfile_get_position(&ver_profile);
@@ -761,6 +704,160 @@ void Main_Arm_Algorithm()
 				arm_state = 0;
 			}
 			break;
+
+		case 99: //--- MANUAL MODE, MOTHERFUCKER
+		{
+			rgb_state = 8;
+
+            static float rot_scaled = 0;
+            static float hor_scaled = 0;
+            static uint8_t grab_state = 0;
+            static uint8_t SUCK_state = 0;
+            static uint8_t SUCK_TIME = 0;
+
+
+            //---- control the GAWK GAWK 3000 SUCK PUMP
+            switch (SUCK_state)
+			{
+				case 0:
+					if(udp_tx.r1)
+					{
+						SUCK_state++;
+					}
+					break;
+				case 1:
+					relay_state = 1;
+
+					if(SUCK_TIME >= 250)
+					{
+						SUCK_state++;
+						SUCK_TIME = 0;
+					}
+					else
+					{
+						SUCK_TIME++;
+					}
+					break;
+				case 2:
+					if(udp_tx.r1)
+					{
+						SUCK_state++;
+					}
+					break;
+				case 3:
+					relay_state = 0;
+					if(SUCK_TIME >= 250)
+					{
+						SUCK_state = 0;
+						SUCK_TIME = 0;
+					}
+					else
+					{
+						SUCK_TIME++;
+					}
+					break;
+			}
+
+            //--- Control the forward and rotation movement of arm
+            if(udp_tx.left && rot_scaled < 300)
+            {
+                rot_scaled += 0.2;
+            }
+            else if(udp_tx.right && rot_scaled > -300)
+            {
+                rot_scaled -= 0.2;
+            }
+
+            if(udp_tx.up && hor_scaled < MAX_HORIZONTAL_PULSE)
+            {
+                hor_scaled += 1;
+            }
+            else if(udp_tx.down && hor_scaled > 10)
+            {
+                hor_scaled -= 1;
+            }
+
+            set_position_rot = rot_scaled;
+            set_position_hor = hor_scaled;
+
+            //-- Control UP and DOWN movement of your MUM
+            switch(grab_state)
+            {
+				case 0:
+					if(udp_tx.l1)
+					{
+						grab_state++;
+					}
+					break;
+
+				case 1:
+					MotionProfile_set_target(&ver_profile, 0);
+					MotionProfile_update(&ver_profile, 0.001);
+					set_ver = MotionProfile_get_position(&ver_profile);
+					set_position_ver = (int16_t)set_ver;
+
+					if(MotionProfile_finished(&ver_profile))
+					{
+		                if(arm_cnt_ms >= 249)
+		                {
+		                    grab_state++;
+		                    arm_cnt_ms = 0;
+		                }
+		                else
+		                {
+		                    arm_cnt_ms++;
+		                }
+					}
+					break;
+
+				case 2:
+					if(udp_tx.l1)
+					{
+						grab_state++;
+					}
+					break;
+
+				case 3:
+					MotionProfile_set_target(&ver_profile, MAX_VERTICAL_PULSE);
+					MotionProfile_update(&ver_profile, 0.001);
+					set_ver = MotionProfile_get_position(&ver_profile);
+					set_position_ver = (int16_t)set_ver;
+
+					if(MotionProfile_finished(&ver_profile))
+					{
+		                if(arm_cnt_ms >= 249)
+		                {
+		                    grab_state = 0;
+		                    arm_cnt_ms = 0;
+		                }
+		                else
+		                {
+		                    arm_cnt_ms++;
+		                }
+					}
+					break;
+            }
+
+
+            //--- GO BACK TO AUTO MODE
+            if(udp_tx.share)
+            {
+                manual_arm = 0;
+                rot_scaled = 0;
+                hor_scaled = 0;
+                grab_state = 0;
+                SUCK_state = 0;
+
+                PID_Reset(&PID_ver_enc);
+                PID_Reset(&PID_rot_enc);
+                PID_Reset(&PID_hor_enc);
+
+                arm_state = 0;
+            }
+
+			break;
+		}
+
 	}
 
 }
@@ -807,55 +904,98 @@ void Main_Base_Algorithm()
 		Encoder_ResetCount(&encA);
 		Encoder_ResetCount(&encB);
 		Encoder_ResetCount(&encC);
+		box_feedback = 0;
 		return;
 	}
 
 	static uint8_t base_state = 0;
 	static uint16_t base_cnt_ms = 0;
 
-	vy = Controller_Drift(udp_tx.lX, 12);
+	vy = -Controller_Drift(udp_tx.lX, 12);
 	vx = Controller_Drift(udp_tx.lY, 12);
-	vw = -Controller_Drift(udp_tx.rX, 12);
+	int16_t rx = -Controller_Drift(udp_tx.rX, 12);
 
-	vx = map(vx, -128, 127, -30, 30);
-	vy = map(vy, -128, 127, -30, 30);
-	vw = map(vw, -128, 127, -3, 3);
+	vx = map(vx, -128, 127, -10, 10);
+	vy = map(vy, -128, 127, -10, 10);
+	rx = map(rx, -128, 127, -3, 3);
 
+	vw = rx;
+
+//	set_w += (float) rx * 0.3; //--- ini scale nya
+//
+//    set_w = fmodf(set_w, 360.0f);
+//    if (set_w > 180.0f)
+//    {
+//    	set_w -= 360.0f;
+//    }
+//    else if (set_w < -180.0f)
+//    {
+//    	set_w += 360.0f;
+//    }
+
+
+
+
+
+
+//---- AUTO
 
 //	ultra_lost[0] = ( udp_tx.ultrasonic[0] > WALL_THRESHOLD ); //-- RIGHT
 //	ultra_lost[1] = ( udp_tx.ultrasonic[1] > WALL_THRESHOLD ); //-- CENTER
 //	ultra_lost[2] = ( udp_tx.ultrasonic[2] > WALL_THRESHOLD ); //-- LEFT
 //	ultra_avg_distance = get_weighted_distance();
 //
-//	switch(base_state)
+//	if(cam_detected)
 //	{
-//		case 0:
-//			set_x = WALL_DISTANCE_SETPOINT;
-//			set_y = 0;
-//			set_w = 0;
+//		set_x = WALL_DISTANCE_SETPOINT;
+//		set_y = 0;
+//		set_w = 0;
 //
-//			vy = -4; //--- go right
+//		vy = 0; //--- STOP
 //
-//			if(ultra_lost[0])
-//			{
-//				base_state++;
-//			}
-//			break;
-//
-//		case 1:
-//			set_x = WALL_DISTANCE_SETPOINT;
-//			set_y = 0;
-//			set_w = 3;
-//
-//			vy = 4; //--- go left
-//
-//			if(ultra_lost[2])
-//			{
-//				base_state = 0;
-//			}
-//			break;
+////		if(base_state == 0)
+////		{
+////			base_state = 1;
+////		}
+////		else
+////		{
+////			base_state = 0;
+////		}
 //	}
 //
+//	else
+//	{
+//		switch(base_state)
+//		{
+//			case 0:
+//				set_x = WALL_DISTANCE_SETPOINT;
+//				set_y = 0;
+//				set_w = 0;
+//
+//				vy = -4; //--- go right
+//
+//				if(ultra_lost[0])
+//				{
+//					base_state++;
+//				}
+//				break;
+//
+//			case 1:
+//				set_x = WALL_DISTANCE_SETPOINT;
+//				set_y = 0;
+//				set_w = 3;
+//
+//				vy = 4; //--- go left
+//
+//				if(ultra_lost[2])
+//				{
+//					base_state = 0;
+//				}
+//				break;
+//		}
+//	}
+
+
 //	MotionProfile_set_target(&w_profile, set_w);
 //	MotionProfile_update(&w_profile, 0.001);
 //	base_pos_w = MotionProfile_get_position(&w_profile);
@@ -879,81 +1019,237 @@ void PID_Arm_Position()
         total_hor_enc += udp_tx.enc_2;
         total_ver_enc += udp_tx.enc_3;
 
-		if(arm_scanning_mode)
-		{
-			PID_Update(&PID_rot_cam, set_position_rot, udp_rx.closestTrashX);
 
-			set_speed_rot = (int16_t)PID_rot_cam.output;
+        switch(arm_scanning_mode)
+        {
+			case 0: //--- enc mode full
 
-			if(abs(PID_rot_cam.error) < PID_rot_cam.tolerance)
-			{
-				set_speed_rot = 0;
-			}
-	        if(total_rot_enc < -300 && PID_rot_cam.output <= 0)
-	        {
-	        	set_speed_rot = 0;
-	        }
-	        if(total_rot_enc > 300 && PID_rot_cam.output >= 0)
-	        {
-	        	set_speed_rot = 0;
-	        }
+				PID_Update(&PID_rot_enc, set_position_rot, total_rot_enc);
 
+				set_speed_rot = (int16_t)PID_rot_enc.output;
 
-			PID_Update(&PID_hor_cam, set_position_hor, udp_rx.closestTrashY);
-
-			set_speed_hor = (int16_t)PID_hor_cam.output;
-
-			if(abs(PID_hor_cam.error) < PID_hor_cam.tolerance)
-			{
-				set_speed_hor = 0;
-			}
-	        if(total_hor_enc < 200 && PID_hor_cam.output <= 0)
-	        {
-	        	set_speed_hor = 0;
-	        }
-	        if(total_hor_enc > 1400 && PID_hor_cam.output >= 0)
-	        {
-	        	set_speed_hor = 0;
-	        }
-		}
-		else
-		{
-			PID_Update(&PID_rot_enc, set_position_rot, total_rot_enc);
-
-			set_speed_rot = (int16_t)PID_rot_enc.output;
-
-			if(abs(PID_rot_enc.error) < PID_rot_enc.tolerance)
-			{
-				set_speed_rot = 0;
-			}
-	        if(total_rot_enc < -300 && PID_rot_enc.output <= 0)
-	        {
-	        	set_speed_rot = 0;
-	        }
-	        if(total_rot_enc > 300 && PID_rot_enc.output >= 0)
-	        {
-	        	set_speed_rot = 0;
-	        }
+				if(abs(PID_rot_enc.error) < PID_rot_enc.tolerance)
+				{
+					set_speed_rot = 0;
+				}
+		        if(total_rot_enc < -300 && PID_rot_enc.output <= 0)
+		        {
+		        	set_speed_rot = 0;
+		        }
+		        if(total_rot_enc > 300 && PID_rot_enc.output >= 0)
+		        {
+		        	set_speed_rot = 0;
+		        }
 
 
-			PID_Update(&PID_hor_enc, set_position_hor, total_hor_enc);
+				PID_Update(&PID_hor_enc, set_position_hor, total_hor_enc);
 
-			set_speed_hor = (int16_t)PID_hor_enc.output;
+				set_speed_hor = (int16_t)PID_hor_enc.output;
 
-			if(abs(PID_hor_enc.error) < PID_hor_enc.tolerance)
-			{
-				set_speed_hor = 0;
-			}
-	        if(total_hor_enc < 10 && PID_hor_enc.output <= 0)
-	        {
-	        	set_speed_hor = 0;
-	        }
-	        if(total_hor_enc > MAX_HORIZONTAL_PULSE && PID_hor_enc.output >= 0)
-	        {
-	        	set_speed_hor = 0;
-	        }
+				if(abs(PID_hor_enc.error) < PID_hor_enc.tolerance)
+				{
+					set_speed_hor = 0;
+				}
+		        if(total_hor_enc < 10 && PID_hor_enc.output <= 0)
+		        {
+		        	set_speed_hor = 0;
+		        }
+		        if(total_hor_enc > MAX_HORIZONTAL_PULSE && PID_hor_enc.output >= 0)
+		        {
+		        	set_speed_hor = 0;
+		        }
+				break;
 
-		}
+			case 1: //--- cam mode full
+
+				PID_Update(&PID_rot_cam, set_position_rot, udp_rx.closestTrashX);
+
+				set_speed_rot = (int16_t)PID_rot_cam.output;
+
+				if(abs(PID_rot_cam.error) < PID_rot_cam.tolerance)
+				{
+					set_speed_rot = 0;
+				}
+		        if(total_rot_enc < -300 && PID_rot_cam.output <= 0)
+		        {
+		        	set_speed_rot = 0;
+		        }
+		        if(total_rot_enc > 300 && PID_rot_cam.output >= 0)
+		        {
+		        	set_speed_rot = 0;
+		        }
+
+
+				PID_Update(&PID_hor_cam, set_position_hor, udp_rx.closestTrashY);
+
+				set_speed_hor = (int16_t)PID_hor_cam.output;
+
+				if(abs(PID_hor_cam.error) < PID_hor_cam.tolerance)
+				{
+					set_speed_hor = 0;
+				}
+		        if(total_hor_enc < 200 && PID_hor_cam.output <= 0)
+		        {
+		        	set_speed_hor = 0;
+		        }
+		        if(total_hor_enc > 1400 && PID_hor_cam.output >= 0)
+		        {
+		        	set_speed_hor = 0;
+		        }
+				break;
+
+			case 2: //--- box mode
+
+				PID_Update(&PID_rot_box, set_position_rot, (udp_rx.cameraX - udp_rx.closestBoxX));
+
+				set_speed_rot = (int16_t)PID_rot_box.output;
+
+				if(abs(PID_rot_box.error) < PID_rot_box.tolerance)
+				{
+					set_speed_rot = 0;
+				}
+		        if(total_rot_enc < -300 && PID_rot_box.output <= 0)
+		        {
+		        	set_speed_rot = 0;
+		        }
+		        if(total_rot_enc > 300 && PID_rot_box.output >= 0)
+		        {
+		        	set_speed_rot = 0;
+		        }
+
+
+				PID_Update(&PID_hor_enc, set_position_hor, total_hor_enc);
+
+				set_speed_hor = (int16_t)PID_hor_enc.output;
+
+				if(abs(PID_hor_enc.error) < PID_hor_enc.tolerance)
+				{
+					set_speed_hor = 0;
+				}
+		        if(total_hor_enc < 10 && PID_hor_enc.output <= 0)
+		        {
+		        	set_speed_hor = 0;
+		        }
+		        if(total_hor_enc > MAX_HORIZONTAL_PULSE && PID_hor_enc.output >= 0)
+		        {
+		        	set_speed_hor = 0;
+		        }
+				break;
+        }
+
+//		if(arm_scanning_mode)
+//		{
+//			PID_Update(&PID_rot_cam, set_position_rot, udp_rx.closestTrashX);
+//
+//			set_speed_rot = (int16_t)PID_rot_cam.output;
+//
+//			if(abs(PID_rot_cam.error) < PID_rot_cam.tolerance)
+//			{
+//				set_speed_rot = 0;
+//			}
+//	        if(total_rot_enc < -300 && PID_rot_cam.output <= 0)
+//	        {
+//	        	set_speed_rot = 0;
+//	        }
+//	        if(total_rot_enc > 300 && PID_rot_cam.output >= 0)
+//	        {
+//	        	set_speed_rot = 0;
+//	        }
+//
+//
+//			PID_Update(&PID_hor_cam, set_position_hor, udp_rx.closestTrashY);
+//
+//			set_speed_hor = (int16_t)PID_hor_cam.output;
+//
+//			if(abs(PID_hor_cam.error) < PID_hor_cam.tolerance)
+//			{
+//				set_speed_hor = 0;
+//			}
+//	        if(total_hor_enc < 200 && PID_hor_cam.output <= 0)
+//	        {
+//	        	set_speed_hor = 0;
+//	        }
+//	        if(total_hor_enc > 1400 && PID_hor_cam.output >= 0)
+//	        {
+//	        	set_speed_hor = 0;
+//	        }
+//		}
+//		else
+//		{
+//			PID_Update(&PID_rot_enc, set_position_rot, total_rot_enc);
+//
+//			set_speed_rot = (int16_t)PID_rot_enc.output;
+//
+//			if(abs(PID_rot_enc.error) < PID_rot_enc.tolerance)
+//			{
+//				set_speed_rot = 0;
+//			}
+//	        if(total_rot_enc < -300 && PID_rot_enc.output <= 0)
+//	        {
+//	        	set_speed_rot = 0;
+//	        }
+//	        if(total_rot_enc > 300 && PID_rot_enc.output >= 0)
+//	        {
+//	        	set_speed_rot = 0;
+//	        }
+//
+//
+//			PID_Update(&PID_hor_enc, set_position_hor, total_hor_enc);
+//
+//			set_speed_hor = (int16_t)PID_hor_enc.output;
+//
+//			if(abs(PID_hor_enc.error) < PID_hor_enc.tolerance)
+//			{
+//				set_speed_hor = 0;
+//			}
+//	        if(total_hor_enc < 10 && PID_hor_enc.output <= 0)
+//	        {
+//	        	set_speed_hor = 0;
+//	        }
+//	        if(total_hor_enc > MAX_HORIZONTAL_PULSE && PID_hor_enc.output >= 0)
+//	        {
+//	        	set_speed_hor = 0;
+//	        }
+//		}
+//
+//
+//		if(arm_box_mode)
+//		{
+//			PID_Update(&PID_rot_box, set_position_rot, (udp_rx.cameraX - udp_rx.closestBoxX));
+//
+//			set_speed_rot = (int16_t)PID_rot_box.output;
+//
+//			if(abs(PID_rot_box.error) < PID_rot_box.tolerance)
+//			{
+//				set_speed_rot = 0;
+//			}
+//	        if(total_rot_enc < -300 && PID_rot_box.output <= 0)
+//	        {
+//	        	set_speed_rot = 0;
+//	        }
+//	        if(total_rot_enc > 300 && PID_rot_box.output >= 0)
+//	        {
+//	        	set_speed_rot = 0;
+//	        }
+//
+//
+//			PID_Update(&PID_hor_enc, set_position_hor, total_hor_enc);
+//
+//			set_speed_hor = (int16_t)PID_hor_enc.output;
+//
+//			if(abs(PID_hor_enc.error) < PID_hor_enc.tolerance)
+//			{
+//				set_speed_hor = 0;
+//			}
+//	        if(total_hor_enc < 10 && PID_hor_enc.output <= 0)
+//	        {
+//	        	set_speed_hor = 0;
+//	        }
+//	        if(total_hor_enc > MAX_HORIZONTAL_PULSE && PID_hor_enc.output >= 0)
+//	        {
+//	        	set_speed_hor = 0;
+//	        }
+//		}
 
 		PID_Update(&PID_ver_enc, set_position_ver, total_ver_enc);
 
@@ -978,17 +1274,23 @@ void PID_Base_Position()
 
 	if(timer >= 9)
 	{
+
 //		PID_Update(&PID_x_enc, base_pos_x, global_x);
 //		vx = (int16_t)PID_x_enc.output;
 
-//		PID_Update(&PID_x_ultra, set_x, ultra_avg_distance);
-//		vx = -(int16_t)PID_x_ultra.output;
+
 
 //		PID_Update(&PID_y_enc, base_pos_y, global_y);
 //		vy = (int16_t)PID_y_enc.output;
 
-//		PID_Update_Rotate(&PID_w_mpu, base_pos_w, yaw_degree);
+		//--- auto
+//		PID_Update(&PID_x_ultra, set_x, ultra_avg_distance);
+//		vx = -(int16_t)PID_x_ultra.output;
+//		PID_Update_Rotate(&PID_w_mpu, set_w, yaw_degree);
 //		vw = (int16_t)PID_w_mpu.output;
+
+//		PID_Update(&PID_y_cam, box_setpoint, box_feedback);
+//		vy = (int16_t)PID_y_cam.output;
 
 		timer = 0;
 	}

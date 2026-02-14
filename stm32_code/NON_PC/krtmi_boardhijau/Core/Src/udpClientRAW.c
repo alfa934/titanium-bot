@@ -99,7 +99,16 @@ void udp_receive_callback(void *arg, struct udp_pcb *upcb, struct pbuf *p, const
 	/* Copy the data from the pbuf */
 	memcpy(udp_rx_buffer, p->payload, p->len);
 
-	memcpy(&udp_rx, udp_rx_buffer +  3, sizeof(udpRx_t));
+//	memcpy(&udp_rx, udp_rx_buffer +  3, sizeof(udpRx_t));
+
+    memcpy(&udp_rx.trashDetected, udp_rx_buffer +  3, 1);
+    memcpy(&udp_rx.trashType, udp_rx_buffer + 4, 1);
+    memcpy(&udp_rx.cameraX, udp_rx_buffer + 5, 2);
+    memcpy(&udp_rx.cameraY, udp_rx_buffer + 7, 2);
+    memcpy(&udp_rx.closestTrashX, udp_rx_buffer + 9, 2);
+    memcpy(&udp_rx.closestTrashY, udp_rx_buffer + 11, 2);
+    memcpy(&udp_rx.boxDetected, udp_rx_buffer + 13, 1);
+    memcpy(&udp_rx.closestBoxX, udp_rx_buffer + 14, 2);
 
 	pbuf_free(p);
 }

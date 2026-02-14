@@ -93,6 +93,10 @@ typedef struct
 	int16_t cameraY;
 	int16_t closestTrashX;
 	int16_t closestTrashY;
+	uint8_t boxDetected;
+	int16_t closestBoxX;
+
+
 //	uint8_t robot_start;
 //	uint8_t robot_reset;
 //
