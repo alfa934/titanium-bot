@@ -1091,6 +1091,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
  8000a10:	4293      	cmp	r3, r2
  8000a12:	d123      	bne.n	8000a5c <HAL_TIM_PeriodElapsedCallback+0x58>
 	{
+
 		if(rst_state)
  8000a14:	4b14      	ldr	r3, [pc, #80]	@ (8000a68 <HAL_TIM_PeriodElapsedCallback+0x64>)
  8000a16:	781b      	ldrb	r3, [r3, #0]

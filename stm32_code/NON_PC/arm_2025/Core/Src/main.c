@@ -320,6 +320,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if(htim == &htim6)
 	{
+
 		if(rst_state)
 		{
 			if(rst_cnt >= 500)

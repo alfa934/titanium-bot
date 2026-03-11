@@ -447,9 +447,24 @@ void Main_Arm_Algorithm()
 			set_position_ver = (int16_t)set_ver;
 			if(MotionProfile_finished(&ver_profile))
 			{
-				arm_state++;
+				arm_state = 11;
 			}
+
+//			set_position_ver = MAX_VERTICAL_PULSE - 100;
+//			arm_state = 111;
 			break;
+
+//		case 111:
+//            if(arm_cnt_ms >= 2400)
+//            {
+//            	arm_state = 11;
+//                arm_cnt_ms = 0;
+//            }
+//            else
+//            {
+//                arm_cnt_ms++;
+//            }
+//            break;
 
 		case 1: //--- Arm hold rotate (at 0 position)
 
@@ -681,7 +696,7 @@ void Main_Arm_Algorithm()
 
 			if(MotionProfile_finished(&ver_profile))
 			{
-                if(arm_cnt_ms >= 2499)
+                if(arm_cnt_ms >= 249) //2499
                 {
                 	cam_detected = 0;
                     arm_state = 0;
@@ -692,6 +707,19 @@ void Main_Arm_Algorithm()
                     arm_cnt_ms++;
                 }
 			}
+
+//			set_position_ver = 200;
+//			if(arm_cnt_ms >= 2499) //2499
+//			{
+////				cam_detected = 0;
+//				arm_state = 0;
+//				arm_cnt_ms = 0;
+//			}
+//			else
+//			{
+//				arm_cnt_ms++;
+//			}
+
 			break;
 
 		case 21: //--- ignore this, this is just a test, nigga
@@ -908,18 +936,20 @@ void Main_Base_Algorithm()
 		return;
 	}
 
-	static uint8_t base_state = 0;
-	static uint16_t base_cnt_ms = 0;
+	vx = vy = vw = 0;
 
-	vy = -Controller_Drift(udp_tx.lX, 12);
-	vx = Controller_Drift(udp_tx.lY, 12);
-	int16_t rx = -Controller_Drift(udp_tx.rX, 12);
-
-	vx = map(vx, -128, 127, -10, 10);
-	vy = map(vy, -128, 127, -10, 10);
-	rx = map(rx, -128, 127, -3, 3);
-
-	vw = rx;
+//	static uint8_t base_state = 0;
+//	static uint16_t base_cnt_ms = 0;
+//
+//	vy = -Controller_Drift(udp_tx.lX, 12);
+//	vx = Controller_Drift(udp_tx.lY, 12);
+//	int16_t rx = -Controller_Drift(udp_tx.rX, 12);
+//
+//	vx = map(vx, -128, 127, -10, 10);
+//	vy = map(vy, -128, 127, -10, 10);
+//	rx = map(rx, -128, 127, -3, 3);
+//
+//	vw = rx;
 
 //	set_w += (float) rx * 0.3; //--- ini scale nya
 //
